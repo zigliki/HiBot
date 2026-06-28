@@ -1,6 +1,7 @@
 var db = require("./db");
 
 const DAY_IN_MILLIS = 86400000;
+const PING_DELAY = DAY_IN_MILLIS * 7;
 const pingArray = Object.create(null);
 
 function schedulePing(server, channel, delay) {
@@ -9,6 +10,34 @@ function schedulePing(server, channel, delay) {
     pingArray[server] = setTimeout(function () {
         channel.send("hi");
     }, delay);
+}
+
+async function restartPings(client) {
+    //rebuild the in-memory ping timers from the DB after a restart
+    console.log("restarting ping timers");
+    var servers = await db.getAllServers();
+    for (const data of servers) {
+        //the bot only ever pings to revive the chain; skip if the last hi was the bot's
+        if (data.lastUser == client.user.id) continue;
+        //skip servers that have never had a hi
+        if (!data.lastHi) continue;
+
+        var guild = client.guilds.cache.get(data.server);
+        if (typeof guild == 'undefined') {
+            console.log("  no longer in guild " + data.server + ", skipping");
+            continue;
+        }
+        var channel = guild.channels.cache.find(channel => channel.name === "hi");
+        if (typeof channel == 'undefined') {
+            console.log("  no #hi channel in " + guild.name + ", skipping");
+            continue;
+        }
+
+        //fire 7 days after the last hi, or right away if that's already passed
+        var delay = Math.max(0, data.lastHi + PING_DELAY - Date.now());
+        console.log("  scheduling ping for " + guild.name + " in " + msToTime(delay));
+        schedulePing(data.server, channel, delay);
+    }
 }
 
 async function checkHi(msg, client){
@@ -82,4 +111,4 @@ function msToTime(duration) {
     return hours + ":" + minutes + ":" + seconds;
   }
 
-module.exports = { checkHi };
+module.exports = { checkHi, restartPings };
