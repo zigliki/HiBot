@@ -3,6 +3,14 @@ var db = require("./db");
 const DAY_IN_MILLIS = 86400000;
 const pingArray = Object.create(null);
 
+function schedulePing(server, channel, delay) {
+    //(re)arm the ping timer for a server. when it fires, the bot says hi
+    clearTimeout(pingArray[server]);
+    pingArray[server] = setTimeout(function () {
+        channel.send("hi");
+    }, delay);
+}
+
 async function checkHi(msg, client){
     if(msg.channel.name == "hi"){
         //check that the message was sent to #hi
@@ -44,12 +52,7 @@ async function checkHi(msg, client){
                     if(data.lastUser != client.user.id){
                         //if the last hi wasn't from the bot, set up a ping for 7 days
                         console.log("  resetting ping timer")
-                        clearTimeout(pingArray[data.server]);
-                        pingArray[data.server] = setTimeout(function () {
-                            var channel = msg.channel;
-                            channel.send("hi");
-                            hasPinged = true;
-                        }, DAY_IN_MILLIS * 7);
+                        schedulePing(data.server, msg.channel, PING_DELAY);
                     }
                     db.setHi(data);
                 }
