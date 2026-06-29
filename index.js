@@ -4,6 +4,7 @@ require('dotenv').config({ path: './keys.env' })
 var hi = require("./hi");
 var db = require("./db");
 var cmd = require("./botControl")
+var tools = require("./tools")
 
 // Import discord.js and create the client
 const Discord = require('discord.js')
@@ -15,6 +16,15 @@ client.on('ready', async () => {
   await db.connect();
   await cmd.applyStoredSettings(client);
   hi.restartPings(client);
+
+  //on-demand maintenance tools, gated behind env (TOOLS=true + TOOL_TO_USE=<name>). see tools.js
+  if (process.env.TOOLS === 'true') {
+    try {
+      await tools.runTool(client);
+    } catch (err) {
+      console.log("tool failed: " + err.message);
+    }
+  }
 })
 
 //close the DB pool cleanly when the process is told to stop (e.g. on redeploy)
