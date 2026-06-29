@@ -1,13 +1,15 @@
-# fly.toml file generated for zigliki-hi-bot on 2023-03-22T17:52:00-04:00
-
 app = "zigliki-hi-bot"
-kill_signal = "SIGINT"
-kill_timeout = 5
 primary_region = "yyz"
-processes = []
+kill_signal = "SIGINT"
+kill_timeout = "5s"
+
+# HiBot is a Discord bot (outbound gateway connection, no inbound HTTP), so it runs
+# as a worker: no [http_service], which means the fly proxy never autostops it.
 
 [build]
   builder = "heroku/builder:24"
 
-[experimental]
-  auto_rollback = true
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory = "1gb"
