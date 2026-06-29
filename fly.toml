@@ -1,9 +1,9 @@
-# fly.toml app configuration file generated for zigliki-hi-bot on 2026-06-29T02:20:37-04:00
+# fly.toml app configuration file generated for zigliki-hi-bot-staging on 2026-06-29T06:46:04Z
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'zigliki-hi-bot'
+app = 'zigliki-hi-bot-staging'
 primary_region = 'yyz'
 kill_signal = 'SIGINT'
 kill_timeout = '5s'
