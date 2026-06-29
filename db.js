@@ -135,4 +135,10 @@ async function getTopStats(serverId, limit) {
     return await stats.find({ server: serverId }).sort({ successful: -1 }).limit(limit).toArray();
 }
 
-module.exports = { connect, close, newServer, getHi, setHi, getAllServers, setOutputChannel, getSettings, setSettings, recordHi, getUserStats, getTopStats }
+async function setStats(userId, serverId, fields) {
+    //absolute upsert used by the one-off backfill (HIB-20) - safe to re-run
+    const doc = { $set: Object.assign({ user: userId, server: serverId }, fields) };
+    await stats.updateOne({ user: userId, server: serverId }, doc, { upsert: true });
+}
+
+module.exports = { connect, close, newServer, getHi, setHi, getAllServers, setOutputChannel, getSettings, setSettings, recordHi, getUserStats, getTopStats, setStats }
