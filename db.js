@@ -9,6 +9,7 @@ const client = new MongoClient(uri);
 const database = client.db("HiBot");
 const hi = database.collection("hi");
 const settings = database.collection("settings");
+const stats = database.collection("stats");
 
 async function connect() {
     //connect once at startup so the cluster stays active even while the bot is idle
@@ -91,4 +92,47 @@ async function setSettings(updates) {
     await settings.updateOne({}, { $set: updates }, { upsert: true });
 }
 
-module.exports = { connect, close, newServer, getHi, setHi, getAllServers, setOutputChannel, getSettings, setSettings }
+async function recordHi(userId, serverId, timestamp) {
+    //per-user, per-server stats. this is the ONLY writer, so all derived fields
+    //(avgHi) are recomputed here together and can't drift out of sync (HIB-2).
+    const query = { user: userId, server: serverId };
+    var stat = await stats.findOne(query);
+
+    if (stat == null) {
+        //first hi for this user in this server
+        const doc = {
+            user: userId,
+            server: serverId,
+            successful: 1,
+            avgHi: 0,
+            firstHi: timestamp,
+            lastHi: timestamp
+        }
+        await stats.insertOne(doc);
+        return;
+    }
+
+    //average gap between this user's his = total span / number of gaps
+    const successful = stat.successful + 1;
+    const avgHi = Math.round((timestamp - stat.firstHi) / (successful - 1));
+    const doc = {
+        $set: {
+            successful: successful,
+            avgHi: avgHi,
+            lastHi: timestamp
+        }
+    }
+    await stats.updateOne(query, doc);
+}
+
+async function getUserStats(userId, serverId) {
+    //one user's stats in one server
+    return await stats.findOne({ user: userId, server: serverId });
+}
+
+async function getTopStats(serverId, limit) {
+    //leaderboard for a server, most successful his first
+    return await stats.find({ server: serverId }).sort({ successful: -1 }).limit(limit).toArray();
+}
+
+module.exports = { connect, close, newServer, getHi, setHi, getAllServers, setOutputChannel, getSettings, setSettings, recordHi, getUserStats, getTopStats }
