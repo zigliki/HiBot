@@ -7,7 +7,7 @@ primary_region = "yyz"
 processes = []
 
 [build]
-  builder = "heroku/buildpacks:20"
+  builder = "heroku/builder:24"
 
 [experimental]
   auto_rollback = true
