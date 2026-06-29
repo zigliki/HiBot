@@ -12,9 +12,19 @@ const client = new Discord.Client();
 // Register an event so that when the bot is ready, it will log a messsage to the terminal
 client.on('ready', async () => {
   console.log(`Logged in as ${client.user.tag}!`);
+  await db.connect();
   await cmd.applyStoredSettings(client);
   hi.restartPings(client);
 })
+
+//close the DB pool cleanly when the process is told to stop (e.g. on redeploy)
+async function shutdown() {
+  await db.close();
+  await client.destroy();
+  process.exit(0);
+}
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
 
 //When joining a server, register with the db
 client.on("guildCreate", guild => {
