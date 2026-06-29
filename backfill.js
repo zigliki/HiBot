@@ -2,7 +2,7 @@ var db = require("./db");
 
 // One-off stats backfill (HIB-20). Not a normal part of the bot - it's run via the
 // tools framework (TOOLS=true, TOOL_TO_USE=backfill, BACKFILL_CHANNEL_ID=<#hi id>,
-// BACKFILL_APPLY=1 to write). Clear those env vars once it has run.
+// BACKFILL_APPLY=true to write). Clear those env vars once it has run.
 // Pages through a channel's full history and (optionally) writes per-user stats,
 // replaying the game rules over the past messages.
 async function runBackfill(channel, options) {
@@ -26,20 +26,29 @@ async function runBackfill(channel, options) {
 
     //replay the rules: must be "hi" and not the same user back-to-back.
     //NO time-gap check - the 24h rule was added later and shouldn't apply to history.
+    //fold replaced accounts into the current account (old id -> new id) so the
+    //earliest hi (and combined totals) land on the account the person uses now.
+    const REMAP = {
+        "128714146773598208": "201560166397771776", // deathslash1924 -> vinhtage_gamer
+        "128717967180431360": "338891480686919683"  // chrisk8837 -> mitonlid
+    };
+
     const tally = new Map();
     var lastValidUser = null;
     for (const m of raw) {
         if (m.content.trim().toLowerCase() !== "hi") continue;
-        if (m.user === lastValidUser) continue;
+        const user = REMAP[m.user] || m.user;
+        if (user === lastValidUser) continue;
 
-        var t = tally.get(m.user);
+        var t = tally.get(user);
         if (!t) {
-            t = { user: m.user, tag: m.tag, successful: 0, firstHi: m.ts, lastHi: m.ts };
-            tally.set(m.user, t);
+            t = { user: user, tag: m.tag, successful: 0, firstHi: m.ts, lastHi: m.ts };
+            tally.set(user, t);
         }
         t.successful++;
+        t.tag = m.tag;       //keep the most recent username for display
         t.lastHi = m.ts;
-        lastValidUser = m.user;
+        lastValidUser = user;
     }
 
     const serverId = channel.guild.id;
@@ -57,8 +66,10 @@ async function runBackfill(channel, options) {
     //always log what we found (visible in fly logs) so a dry run is useful
     console.log("backfill: " + raw.length + " messages, " + docs.length + " users" + (apply ? " (writing)" : " (dry run)"));
     for (const d of docs) {
-        console.log("  " + d.tag + " (" + d.user + "): " + d.successful + " his, avg " +
-            (d.successful > 1 ? (d.avgHi / 86400000).toFixed(1) + "d" : "n/a"));
+        console.log("  " + d.tag + " (" + d.user + "): " + d.successful + " his, " +
+            "first " + new Date(d.firstHi).toISOString().slice(0, 10) + ", " +
+            "last " + new Date(d.lastHi).toISOString().slice(0, 10) + ", " +
+            "avg " + (d.successful > 1 ? (d.avgHi / 86400000).toFixed(1) + "d" : "n/a"));
     }
 
     if (apply) {
