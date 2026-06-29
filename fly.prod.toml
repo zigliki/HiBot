@@ -1,9 +1,9 @@
-# fly.toml app configuration file generated for zigliki-hi-bot on 2026-06-29T02:20:37-04:00
-#
-# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
-#
+# PRODUCTION config for HiBot (app: zigliki-hi-bot).
+# NOT the default target. Deploy prod explicitly:
+#     fly deploy -c fly.prod.toml
+# A bare `fly deploy` uses fly.toml, which is STAGING.
 
-app = 'zigliki-hi-bot-staging'
+app = 'zigliki-hi-bot'
 primary_region = 'yyz'
 kill_signal = 'SIGINT'
 kill_timeout = '5s'

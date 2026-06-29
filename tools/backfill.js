@@ -1,4 +1,4 @@
-var db = require("./db");
+var db = require("../db");
 
 // One-off stats backfill (HIB-20). Not a normal part of the bot - it's run via the
 // tools framework (TOOLS=true, TOOL_TO_USE=backfill, BACKFILL_CHANNEL_ID=<#hi id>,
