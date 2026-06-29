@@ -84,6 +84,8 @@ async function checkHi(msg, client){
                         schedulePing(data.server, msg.channel, PING_DELAY);
                     }
                     db.setHi(data);
+                    //record the successful hi against the user's stats (HIB-2)
+                    db.recordHi(msg.member.user.id, msg.guild.id, msg.createdTimestamp);
                 }
             }
         } else {
