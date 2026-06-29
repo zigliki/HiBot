@@ -16,9 +16,9 @@ async function runTool(client) {
 
     switch (tool) {
         case "backfill": {
-            //BACKFILL_CHANNEL_ID = the #hi channel to backfill; BACKFILL_APPLY=1 to write (else dry run)
+            //BACKFILL_CHANNEL_ID = the #hi channel to backfill; BACKFILL_APPLY=true to write (else dry run)
             const channel = await client.channels.fetch(process.env.BACKFILL_CHANNEL_ID);
-            const result = await backfill.runBackfill(channel, { apply: process.env.BACKFILL_APPLY === '1' });
+            const result = await backfill.runBackfill(channel, { apply: process.env.BACKFILL_APPLY === 'true' });
             console.log("backfill finished: " + JSON.stringify(result));
             break;
         }
