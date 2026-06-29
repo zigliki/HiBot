@@ -1,3 +1,4 @@
+app_name = "zigliki-hi-bot"
 app = "zigliki-hi-bot"
 primary_region = "yyz"
 kill_signal = "SIGINT"
