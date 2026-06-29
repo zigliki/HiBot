@@ -1,16 +1,30 @@
-//Import MongoDB and setup connection
-var uri = "mongodb+srv://zigliki-admin:" + process.env.MONGO_PWD + "@hibot.nectjrd.mongodb.net/?retryWrites=true&w=majority";
-var MongoClient = require('mongodb');
+//Import MongoDB and set up a single shared client for the whole app.
+//Reusing one MongoClient (instead of opening/closing one per operation) keeps the
+//driver's connection pool and background heartbeats alive, which stops Atlas from
+//auto-pausing the cluster for inactivity (HIB-19).
+const { MongoClient } = require('mongodb');
+const uri = "mongodb+srv://zigliki-admin:" + process.env.MONGO_PWD + "@hibot.nectjrd.mongodb.net/?retryWrites=true&w=majority";
+
+const client = new MongoClient(uri);
+const database = client.db("HiBot");
+const hi = database.collection("hi");
+const settings = database.collection("settings");
+
+async function connect() {
+    //connect once at startup so the cluster stays active even while the bot is idle
+    await client.connect();
+    console.log("connected to MongoDB");
+}
+
+async function close() {
+    //close the pool cleanly on shutdown
+    await client.close();
+}
 
 async function newServer(serverId, botChannel) {
-    //connect to DB
-    const dbclient = new MongoClient.MongoClient(uri);
-    const database = dbclient.db("HiBot");
-    const collection = database.collection("hi");
-
     //check to see if the server has been connected before
     const query = { server: serverId };
-    var server = await collection.findOne(query);
+    var server = await hi.findOne(query);
     if (server == null) {
         //new to server
         //create document then push
@@ -21,18 +35,11 @@ async function newServer(serverId, botChannel) {
             lastHi: 0,
             nextHi: 0
         }
-        const result = await collection.insertOne(doc);
+        await hi.insertOne(doc);
     }
-
-    await dbclient.close();
 }
 
 async function setHi(data) {
-    //connect to DB
-    const dbclient = new MongoClient.MongoClient(uri);
-    const database = dbclient.db("HiBot");
-    const collection = database.collection("hi");
-
     //set updates then push
     const doc = {
         $set: {
@@ -44,84 +51,44 @@ async function setHi(data) {
         },
     }
     const query = { server: data.server };
-    const result = await collection.updateOne(query, doc);
-
-    await dbclient.close();
+    await hi.updateOne(query, doc);
 }
 
 async function getHi(serverId) {
-    //conect to DB
-    const dbclient = new MongoClient.MongoClient(uri);
-    const database = dbclient.db("HiBot");
-    const collection = database.collection("hi");
-
     //get the file that has the data
     const query = { server: serverId };
-    var server = await collection.findOne(query);
+    var server = await hi.findOne(query);
     if (server == null) {
         await newServer(serverId);
-        server = await collection.findOne(query);
+        server = await hi.findOne(query);
     }
-
-    await dbclient.close();
     return (server);
 }
 
 async function getAllServers() {
-    //connect to DB
-    const dbclient = new MongoClient.MongoClient(uri);
-    const database = dbclient.db("HiBot");
-    const collection = database.collection("hi");
-
     //get every server document
-    var servers = await collection.find({}).toArray();
-
-    await dbclient.close();
-    return (servers);
+    return await hi.find({}).toArray();
 }
 
 async function setOutputChannel(serverId, channelId){
-   //connect to DB
-   const dbclient = new MongoClient.MongoClient(uri);
-   const database = dbclient.db("HiBot");
-   const collection = database.collection("hi");
-
-   //set updates then push
-   const doc = {
-       $set: {
-           botControl: channelId,
-       },
-   }
-   const query = { server: serverId };
-   const result = await collection.updateOne(query, doc);
-
-   await dbclient.close();
+    //set updates then push
+    const doc = {
+        $set: {
+            botControl: channelId,
+        },
+    }
+    const query = { server: serverId };
+    await hi.updateOne(query, doc);
 }
 
 async function getSettings() {
-    //connect to DB
-    const dbclient = new MongoClient.MongoClient(uri);
-    const database = dbclient.db("HiBot");
-    const collection = database.collection("settings");
-
     //bot-wide settings live in a single document
-    var settings = await collection.findOne({});
-
-    await dbclient.close();
-    return (settings);
+    return await settings.findOne({});
 }
 
 async function setSettings(updates) {
-    //connect to DB
-    const dbclient = new MongoClient.MongoClient(uri);
-    const database = dbclient.db("HiBot");
-    const collection = database.collection("settings");
-
     //merge the passed fields into the single settings document
-    const doc = { $set: updates };
-    await collection.updateOne({}, doc, { upsert: true });
-
-    await dbclient.close();
+    await settings.updateOne({}, { $set: updates }, { upsert: true });
 }
 
-module.exports = { newServer, getHi, setHi, getAllServers, setOutputChannel, getSettings, setSettings }
+module.exports = { connect, close, newServer, getHi, setHi, getAllServers, setOutputChannel, getSettings, setSettings }
