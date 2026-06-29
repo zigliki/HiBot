@@ -10,9 +10,9 @@ const Discord = require('discord.js')
 const client = new Discord.Client();
 
 // Register an event so that when the bot is ready, it will log a messsage to the terminal
-client.on('ready', () => {
+client.on('ready', async () => {
   console.log(`Logged in as ${client.user.tag}!`);
-  client.user.setActivity('#hi', { type: 'WATCHING' })
+  await cmd.applyStoredSettings(client);
   hi.restartPings(client);
 })
 

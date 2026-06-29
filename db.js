@@ -98,4 +98,30 @@ async function setOutputChannel(serverId, channelId){
    await dbclient.close();
 }
 
-module.exports = { newServer, getHi, setHi, getAllServers, setOutputChannel }
+async function getSettings() {
+    //connect to DB
+    const dbclient = new MongoClient.MongoClient(uri);
+    const database = dbclient.db("HiBot");
+    const collection = database.collection("settings");
+
+    //bot-wide settings live in a single document
+    var settings = await collection.findOne({});
+
+    await dbclient.close();
+    return (settings);
+}
+
+async function setSettings(updates) {
+    //connect to DB
+    const dbclient = new MongoClient.MongoClient(uri);
+    const database = dbclient.db("HiBot");
+    const collection = database.collection("settings");
+
+    //merge the passed fields into the single settings document
+    const doc = { $set: updates };
+    await collection.updateOne({}, doc, { upsert: true });
+
+    await dbclient.close();
+}
+
+module.exports = { newServer, getHi, setHi, getAllServers, setOutputChannel, getSettings, setSettings }
