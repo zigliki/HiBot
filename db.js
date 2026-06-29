@@ -67,6 +67,19 @@ async function getHi(serverId) {
     return (server);
 }
 
+async function getAllServers() {
+    //connect to DB
+    const dbclient = new MongoClient.MongoClient(uri);
+    const database = dbclient.db("HiBot");
+    const collection = database.collection("hi");
+
+    //get every server document
+    var servers = await collection.find({}).toArray();
+
+    await dbclient.close();
+    return (servers);
+}
+
 async function setOutputChannel(serverId, channelId){
    //connect to DB
    const dbclient = new MongoClient.MongoClient(uri);
@@ -85,4 +98,4 @@ async function setOutputChannel(serverId, channelId){
    await dbclient.close();
 }
 
-module.exports = { newServer, getHi, setHi, setOutputChannel }
+module.exports = { newServer, getHi, setHi, getAllServers, setOutputChannel }
