@@ -17,12 +17,12 @@ function botCommands(message, client){
     switch(command){
         case("stats"):
         case("my-stats"):
-            stats.getUserStats(message, client);
+            stats.getUserStats(message, client, args[0]);
             return;
         case("first"):
         case("firsthi"):
         case("first-hi"):
-            stats.getFirstHi(message);
+            stats.getFirstHi(message, args[0]);
             return;
         case("top"):
         case("top-stats"):

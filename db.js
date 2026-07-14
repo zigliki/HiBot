@@ -35,7 +35,7 @@ async function newServer(serverId, botChannel) {
             lastUser: 0,
             lastHi: 0,
             nextHi: 0,
-            currentChain: { count: 0, participants: {}, startedAt: null },
+            currentChain: { count: 0, participants: {}, startedAt: null, lastTs: null },
             longestChain: { count: 0, participants: {}, startedAt: null, endedAt: null }
         }
         await hi.insertOne(doc);
@@ -52,7 +52,7 @@ async function setHi(data) {
             lastHi: data.lastHi,
             nextHi: data.nextHi,
             //chain state (HIB-28); default for docs created before chains existed
-            currentChain: data.currentChain || { count: 0, participants: {}, startedAt: null },
+            currentChain: data.currentChain || { count: 0, participants: {}, startedAt: null, lastTs: null },
             longestChain: data.longestChain || { count: 0, participants: {}, startedAt: null, endedAt: null }
         },
     }
