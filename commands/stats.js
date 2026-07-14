@@ -74,11 +74,8 @@ async function getChain(message){
     var parts = Object.keys(longest.participants || {})
         .map(function(uid){ return { uid: uid, n: longest.participants[uid] }; })
         .sort(function(a, b){ return b.n - a.n; })
-        .map(function(p){
-            var member = message.guild.members.cache.get(p.uid);
-            var name = member ? member.displayName : "<@" + p.uid + ">";
-            return name + " (x" + p.n + ")";
-        });
+        //render as mentions for consistent tags; allowedMentions keeps them ping-free
+        .map(function(p){ return "<@" + p.uid + "> (x" + p.n + ")"; });
     var out =
         "longest hi chain in this server: " + longest.count + " hi's\n" +
         new Date(longest.startedAt).toUTCString() + " → " + new Date(longest.endedAt).toUTCString() + "\n" +
@@ -127,11 +124,10 @@ function sendBoard(message, board, userId, header, emptyMsg, valueFn){
         return;
     }
     function line(stat, rank){
-        //prefer a cached display name, fall back to a mention; flag the requester
-        var member = message.guild.members.cache.get(stat.user);
-        var name = member ? member.displayName : "<@" + stat.user + ">";
+        //always render as a mention so names are consistent and the requester gets a
+        //ping; allowedMentions (see reply) suppresses pings for everyone else (HIB-28)
         var you = stat.user == userId ? " (you)" : "";
-        return rank + ". " + name + " - " + valueFn(stat) + you;
+        return rank + ". <@" + stat.user + "> - " + valueFn(stat) + you;
     }
     var lines = board.slice(0, 5).map(function(stat, i){ return line(stat, i + 1); });
     var rank = board.findIndex(function(s){ return s.user == userId; });

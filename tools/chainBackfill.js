@@ -18,12 +18,22 @@ async function runChainBackfill(channel, botId, options) {
 
     const collected = await backfill.collectValidHis(channel);
 
+    //only count chains from the HiBot era: drop everything before the bot's first hi
+    //(its first revival ~= when it went live). Pre-deploy history had none of the chain
+    //rules (24h / back-to-back / revivals), so it shouldn't count toward chains (HIB-28).
+    const firstBotIdx = collected.his.findIndex(function(h){ return h.user === botId; });
+    const era = firstBotIdx === -1 ? collected.his.slice() : collected.his.slice(firstBotIdx);
+    const dropped = collected.his.length - era.length;
+    if (firstBotIdx === -1) {
+        console.log("chain backfill: WARNING - no bot hi found in history; counting ALL his (no era cutoff)");
+    }
+
     //replay through the exact runtime chain logic
     var data = {
-        currentChain: { count: 0, participants: {}, startedAt: null },
+        currentChain: { count: 0, participants: {}, startedAt: null, lastTs: null },
         longestChain: { count: 0, participants: {}, startedAt: null, endedAt: null }
     };
-    for (const m of collected.his) {
+    for (const m of era) {
         hi.advanceChain(data, m.user, m.ts, botId);
     }
 
@@ -32,7 +42,8 @@ async function runChainBackfill(channel, botId, options) {
 
     //always log (visible in fly logs) so a dry run is useful
     console.log("chain backfill: " + collected.rawCount + " messages, " + collected.his.length +
-        " valid his" + (apply ? " (writing)" : " (dry run)"));
+        " valid his, " + era.length + " in the HiBot era (dropped " + dropped + " pre-deploy)" +
+        (apply ? " (writing)" : " (dry run)"));
     console.log("  longest chain: " + longest.count + " hi's" +
         (longest.count ? " (" + isoDay(longest.startedAt) + " -> " + isoDay(longest.endedAt) + ")" : ""));
     Object.keys(longest.participants || {})
@@ -45,7 +56,7 @@ async function runChainBackfill(channel, botId, options) {
         await db.setChains(channel.guild.id, current, longest);
     }
 
-    return { total: collected.rawCount, valid: collected.his.length, longest: longest.count, current: current.count, applied: apply };
+    return { total: collected.rawCount, valid: collected.his.length, era: era.length, dropped: dropped, longest: longest.count, current: current.count, applied: apply };
 }
 
 function isoDay(ts) {
