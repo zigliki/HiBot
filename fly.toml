@@ -1,7 +1,10 @@
-# fly.toml app configuration file generated for zigliki-hi-bot on 2026-06-29T02:20:37-04:00
+# HiBot PRODUCTION config (app: zigliki-hi-bot).
+# Standard convention: a bare `fly deploy` deploys production.
 #
-# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
-#
+# There is NO separate staging fly app (avoids paying for a second machine).
+# For local dev/testing use:  npm run staging
+#   -> pauses the prod machine, runs the bot locally against the prod DB,
+#      and resumes prod on exit. See scripts/staging.sh.
 
 app = 'zigliki-hi-bot'
 primary_region = 'yyz'

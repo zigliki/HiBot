@@ -3,8 +3,9 @@ require('dotenv').config({ path: './keys.env' })
 //import modules
 var hi = require("./hi");
 var db = require("./db");
-var cmd = require("./botControl")
-var tools = require("./tools")
+var config = require("./config")
+var commands = require("./commands/router")
+var tools = require("./tools/runner")
 
 // Import discord.js and create the client
 const Discord = require('discord.js')
@@ -14,10 +15,10 @@ const client = new Discord.Client();
 client.on('ready', async () => {
   console.log(`Logged in as ${client.user.tag}!`);
   await db.connect();
-  await cmd.applyStoredSettings(client);
+  await config.applyStoredSettings(client);
   hi.restartPings(client);
 
-  //on-demand maintenance tools, gated behind env (TOOLS=true + TOOL_TO_USE=<name>). see tools.js
+  //on-demand maintenance tools, gated behind env (TOOLS=true + TOOL_TO_USE=<name>). see tools/runner.js
   if (process.env.TOOLS === 'true') {
     try {
       await tools.runTool(client);
@@ -45,7 +46,7 @@ client.on("guildCreate", guild => {
 // Register an event to handle incoming messages
 client.on('message', async msg => {
     hi.checkHi(msg, client);
-    cmd.botCommands(msg, client);
+    commands.botCommands(msg, client);
 })
 
 // client.login logs the bot in and sets it up for use. You'll enter your token here.
