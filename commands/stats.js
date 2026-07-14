@@ -44,30 +44,55 @@ async function getFirstHi(message){
     message.channel.send("<@" + stat.user + "> your first hi here was " + new Date(stat.firstHi).toUTCString());
 }
 
-async function getTopFive(message, client){
-    //leaderboard of the most successful hi-ers in this server (HIB-2)
-    //full board with HiBot excluded - its revival his shouldn't rank (HIB-28)
-    var board = await db.getServerStats(message.guild.id, client.user.id);
+async function getTop(message, client, board){
+    //leaderboards for a server, HiBot always excluded (revival his shouldn't rank) - HIB-2/HIB-28
+    board = (board || "his").toLowerCase();
+    var all = await db.getServerStats(message.guild.id, client.user.id);
+    var userId = message.member.user.id;
+
+    switch(board){
+        case "his":
+            //most successful his (count) - rewards long-term dedication
+            sendBoard(message, all, userId,
+                "top hi-ers in this server:",
+                "no hi stats recorded for this server yet :slight_smile:",
+                function(stat){ return stat.successful + " his"; });
+            return;
+        case "avg":
+        case "average":
+            //most consistent: lowest average gap, min 10 his to qualify (HIB-28)
+            var ranked = all.filter(function(s){ return s.successful >= 10; })
+                            .sort(function(a, b){ return a.avgHi - b.avgHi; });
+            sendBoard(message, ranked, userId,
+                "most consistent hi-ers (lowest avg gap, min 10 his):",
+                "no one has 10+ his in this server yet :slight_smile:",
+                function(stat){ return "avg " + formatDuration(stat.avgHi) + " (" + stat.successful + " his)"; });
+            return;
+        default:
+            message.channel.send("unknown leaderboard \"" + board + "\" - try: `top`, `top average`");
+    }
+}
+
+function sendBoard(message, board, userId, header, emptyMsg, valueFn){
+    //render a top-5 leaderboard; if the requester isn't in the top 5, append their rank (HIB-28)
     if(board.length == 0){
-        message.channel.send("no hi stats recorded for this server yet :slight_smile:");
+        message.channel.send(emptyMsg);
         return;
     }
-    var userId = message.member.user.id;
     function line(stat, rank){
         //prefer a cached display name, fall back to a mention; flag the requester
         var member = message.guild.members.cache.get(stat.user);
         var name = member ? member.displayName : "<@" + stat.user + ">";
         var you = stat.user == userId ? " (you)" : "";
-        return rank + ". " + name + " - " + stat.successful + " his" + you;
+        return rank + ". " + name + " - " + valueFn(stat) + you;
     }
     var lines = board.slice(0, 5).map(function(stat, i){ return line(stat, i + 1); });
-    //if the requester isn't in the top 5, append their own rank so they can see it (HIB-28)
     var rank = board.findIndex(function(s){ return s.user == userId; });
     if(rank >= 5){
         lines.push("...");
         lines.push(line(board[rank], rank + 1));
     }
-    message.channel.send("top hi-ers in this server:\n" + lines.join("\n"));
+    message.channel.send(header + "\n" + lines.join("\n"));
 }
 
-module.exports = { getUserStats, getFirstHi, getTopFive };
+module.exports = { getUserStats, getFirstHi, getTop };

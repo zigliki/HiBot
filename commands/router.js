@@ -26,7 +26,7 @@ function botCommands(message, client){
             return;
         case("top"):
         case("top-stats"):
-            stats.getTopFive(message, client);
+            stats.getTop(message, client, args[0]);
             return;
     }
 
