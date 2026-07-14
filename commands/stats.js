@@ -46,18 +46,27 @@ async function getFirstHi(message){
 
 async function getTopFive(message, client){
     //leaderboard of the most successful hi-ers in this server (HIB-2)
-    //exclude HiBot - its revival his are recorded but shouldn't rank (HIB-28)
-    var top = await db.getTopStats(message.guild.id, 5, client.user.id);
-    if(top.length == 0){
+    //full board with HiBot excluded - its revival his shouldn't rank (HIB-28)
+    var board = await db.getServerStats(message.guild.id, client.user.id);
+    if(board.length == 0){
         message.channel.send("no hi stats recorded for this server yet :slight_smile:");
         return;
     }
-    var lines = top.map(function(stat, i){
-        //prefer a cached display name, fall back to a mention
+    var userId = message.member.user.id;
+    function line(stat, rank){
+        //prefer a cached display name, fall back to a mention; flag the requester
         var member = message.guild.members.cache.get(stat.user);
         var name = member ? member.displayName : "<@" + stat.user + ">";
-        return (i + 1) + ". " + name + " - " + stat.successful + " his";
-    });
+        var you = stat.user == userId ? " (you)" : "";
+        return rank + ". " + name + " - " + stat.successful + " his" + you;
+    }
+    var lines = board.slice(0, 5).map(function(stat, i){ return line(stat, i + 1); });
+    //if the requester isn't in the top 5, append their own rank so they can see it (HIB-28)
+    var rank = board.findIndex(function(s){ return s.user == userId; });
+    if(rank >= 5){
+        lines.push("...");
+        lines.push(line(board[rank], rank + 1));
+    }
     message.channel.send("top hi-ers in this server:\n" + lines.join("\n"));
 }
 

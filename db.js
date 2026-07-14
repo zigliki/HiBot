@@ -138,18 +138,10 @@ async function getServerStats(serverId, excludeUserId) {
     return await stats.find(query).sort({ successful: -1 }).toArray();
 }
 
-async function getTopStats(serverId, limit, excludeUserId) {
-    //leaderboard for a server, most successful his first; excludeUserId keeps HiBot
-    //off the board (its stats are saved intentionally but shouldn't rank) - HIB-28
-    const query = { server: serverId };
-    if (excludeUserId != null) query.user = { $ne: excludeUserId };
-    return await stats.find(query).sort({ successful: -1 }).limit(limit).toArray();
-}
-
 async function setStats(userId, serverId, fields) {
     //absolute upsert used by the one-off backfill (HIB-20) - safe to re-run
     const doc = { $set: Object.assign({ user: userId, server: serverId }, fields) };
     await stats.updateOne({ user: userId, server: serverId }, doc, { upsert: true });
 }
 
-module.exports = { connect, close, newServer, getHi, setHi, getAllServers, setOutputChannel, getSettings, setSettings, recordHi, getUserStats, getServerStats, getTopStats, setStats }
+module.exports = { connect, close, newServer, getHi, setHi, getAllServers, setOutputChannel, getSettings, setSettings, recordHi, getUserStats, getServerStats, setStats }
