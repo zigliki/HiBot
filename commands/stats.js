@@ -7,26 +7,47 @@ function formatDuration(ms){
     return days + "d " + hours + "h";
 }
 
-async function getUserStats(message){
-    //show the requesting user their own stats in this server (HIB-2)
-    var stat = await db.getUserStats(message.member.user.id, message.guild.id);
+async function getUserStats(message, client){
+    //show the requesting user their own stats in this server (HIB-2, expanded HIB-28)
+    var userId = message.member.user.id;
+    //rank + share are measured against the leaderboard with HiBot excluded (HIB-28)
+    var board = await db.getServerStats(message.guild.id, client.user.id);
+    var stat = board.find(function(s){ return s.user == userId; });
     if(stat == null){
-        message.channel.send("<@" + message.member.user.id + "> you haven't said a successful hi here yet :slight_smile:");
+        message.channel.send("<@" + userId + "> you haven't said a successful hi here yet :slight_smile:");
         return;
     }
     //avgHi is undefined until there are at least two his to measure a gap between
     var avg = stat.successful > 1 ? formatDuration(stat.avgHi) : "n/a";
+    //board is sorted by successful desc, so index+1 is the rank
+    var rank = board.findIndex(function(s){ return s.user == userId; }) + 1;
+    var total = board.reduce(function(sum, s){ return sum + s.successful; }, 0);
+    var share = (stat.successful / total * 100).toFixed(1);
     message.channel.send(
         "<@" + stat.user + "> your hi stats for this server:\n" +
         "successful his: " + stat.successful + "\n" +
         "average time between his: " + avg + "\n" +
+        "rank: #" + rank + " of " + board.length + "\n" +
+        "share: " + share + "% of this server's his\n" +
         "last hi: " + new Date(stat.lastHi).toUTCString()
     );
 }
 
-async function getTopFive(message){
+async function getFirstHi(message){
+    //dedicated command for a user's first hi in this server (HIB-28)
+    //firstHi has always been stored (HIB-2) but was never surfaced until now
+    var stat = await db.getUserStats(message.member.user.id, message.guild.id);
+    if(stat == null || !stat.firstHi){
+        message.channel.send("<@" + message.member.user.id + "> you haven't said a successful hi here yet :slight_smile:");
+        return;
+    }
+    message.channel.send("<@" + stat.user + "> your first hi here was " + new Date(stat.firstHi).toUTCString());
+}
+
+async function getTopFive(message, client){
     //leaderboard of the most successful hi-ers in this server (HIB-2)
-    var top = await db.getTopStats(message.guild.id, 5);
+    //exclude HiBot - its revival his are recorded but shouldn't rank (HIB-28)
+    var top = await db.getTopStats(message.guild.id, 5, client.user.id);
     if(top.length == 0){
         message.channel.send("no hi stats recorded for this server yet :slight_smile:");
         return;
@@ -40,4 +61,4 @@ async function getTopFive(message){
     message.channel.send("top hi-ers in this server:\n" + lines.join("\n"));
 }
 
-module.exports = { getUserStats, getTopFive };
+module.exports = { getUserStats, getFirstHi, getTopFive };

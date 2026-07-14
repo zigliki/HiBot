@@ -130,9 +130,20 @@ async function getUserStats(userId, serverId) {
     return await stats.findOne({ user: userId, server: serverId });
 }
 
-async function getTopStats(serverId, limit) {
-    //leaderboard for a server, most successful his first
-    return await stats.find({ server: serverId }).sort({ successful: -1 }).limit(limit).toArray();
+async function getServerStats(serverId, excludeUserId) {
+    //every user's stats for a server, most successful first; optionally exclude one
+    //user (HiBot excludes itself so its revival his don't skew rank/total) - HIB-28
+    const query = { server: serverId };
+    if (excludeUserId != null) query.user = { $ne: excludeUserId };
+    return await stats.find(query).sort({ successful: -1 }).toArray();
+}
+
+async function getTopStats(serverId, limit, excludeUserId) {
+    //leaderboard for a server, most successful his first; excludeUserId keeps HiBot
+    //off the board (its stats are saved intentionally but shouldn't rank) - HIB-28
+    const query = { server: serverId };
+    if (excludeUserId != null) query.user = { $ne: excludeUserId };
+    return await stats.find(query).sort({ successful: -1 }).limit(limit).toArray();
 }
 
 async function setStats(userId, serverId, fields) {
@@ -141,4 +152,4 @@ async function setStats(userId, serverId, fields) {
     await stats.updateOne({ user: userId, server: serverId }, doc, { upsert: true });
 }
 
-module.exports = { connect, close, newServer, getHi, setHi, getAllServers, setOutputChannel, getSettings, setSettings, recordHi, getUserStats, getTopStats, setStats }
+module.exports = { connect, close, newServer, getHi, setHi, getAllServers, setOutputChannel, getSettings, setSettings, recordHi, getUserStats, getServerStats, getTopStats, setStats }
