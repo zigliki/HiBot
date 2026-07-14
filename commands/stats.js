@@ -25,10 +25,10 @@ async function getUserStats(message, client){
     var share = (stat.successful / total * 100).toFixed(1);
     message.channel.send(
         "<@" + stat.user + "> your hi stats for this server:\n" +
-        "successful his: " + stat.successful + "\n" +
-        "average time between his: " + avg + "\n" +
+        "successful hi's: " + stat.successful + "\n" +
+        "average time between hi's: " + avg + "\n" +
         "rank: #" + rank + " of " + board.length + "\n" +
-        "share: " + share + "% of this server's his\n" +
+        "share: " + share + "% of this server's hi's\n" +
         "last hi: " + new Date(stat.lastHi).toUTCString()
     );
 }
@@ -56,7 +56,7 @@ async function getTop(message, client, board){
             sendBoard(message, all, userId,
                 "top hi-ers in this server:",
                 "no hi stats recorded for this server yet :slight_smile:",
-                function(stat){ return stat.successful + " his"; });
+                function(stat){ return stat.successful + " hi's"; });
             return;
         case "avg":
         case "average":
@@ -64,9 +64,9 @@ async function getTop(message, client, board){
             var ranked = all.filter(function(s){ return s.successful >= 10; })
                             .sort(function(a, b){ return a.avgHi - b.avgHi; });
             sendBoard(message, ranked, userId,
-                "most consistent hi-ers (lowest avg gap, min 10 his):",
-                "no one has 10+ his in this server yet :slight_smile:",
-                function(stat){ return "avg " + formatDuration(stat.avgHi) + " (" + stat.successful + " his)"; });
+                "most consistent hi-ers (lowest avg gap, min 10 hi's):",
+                "no one has 10+ hi's in this server yet :slight_smile:",
+                function(stat){ return "avg " + formatDuration(stat.avgHi) + " (" + stat.successful + " hi's)"; });
             return;
         default:
             message.channel.send("unknown leaderboard \"" + board + "\" - try: `top`, `top average`");
