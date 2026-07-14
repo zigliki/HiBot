@@ -95,7 +95,7 @@ async function checkHi(msg, client){
             msg.delete();
             //inform user that only hi is allowed
            if (typeof botControlChannel != 'undefined')
-            botControlChannel.send("Only hi is allowed in <#" + hiChannel + "> <@" + msg.member.user.id + "> :rage:");
+            botControlChannel.send("Only hi is allowed in <#" + msg.channel.id + "> <@" + msg.member.user.id + "> :rage:");
         }
     }
 }
