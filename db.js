@@ -87,6 +87,12 @@ async function setOutputChannel(serverId, channelId){
     await hi.updateOne(query, doc);
 }
 
+async function setChains(serverId, currentChain, longestChain) {
+    //targeted update of just the chain fields - used by the HIB-28 chain backfill so
+    //it doesn't clobber live game state (lastUser/lastHi/nextHi/botControl)
+    await hi.updateOne({ server: serverId }, { $set: { currentChain: currentChain, longestChain: longestChain } });
+}
+
 async function getSettings() {
     //bot-wide settings live in a single document
     return await settings.findOne({});
@@ -149,4 +155,4 @@ async function setStats(userId, serverId, fields) {
     await stats.updateOne({ user: userId, server: serverId }, doc, { upsert: true });
 }
 
-module.exports = { connect, close, newServer, getHi, setHi, getAllServers, setOutputChannel, getSettings, setSettings, recordHi, getUserStats, getServerStats, setStats }
+module.exports = { connect, close, newServer, getHi, setHi, getAllServers, setOutputChannel, getSettings, setSettings, recordHi, getUserStats, getServerStats, setStats, setChains }

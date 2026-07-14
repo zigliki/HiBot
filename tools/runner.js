@@ -1,4 +1,5 @@
 var backfill = require("./backfill");
+var chainBackfill = require("./chainBackfill");
 
 // On-demand maintenance tools, gated behind env vars so they never run in normal operation:
 //   TOOLS=true             enable tool running at all
@@ -20,6 +21,13 @@ async function runTool(client) {
             const channel = await client.channels.fetch(process.env.BACKFILL_CHANNEL_ID);
             const result = await backfill.runBackfill(channel, { apply: process.env.BACKFILL_APPLY === 'true' });
             console.log("backfill finished: " + JSON.stringify(result));
+            break;
+        }
+        case "chainBackfill": {
+            //CHAIN_BACKFILL_CHANNEL_ID = the #hi channel; CHAIN_BACKFILL_APPLY=true to write (else dry run)
+            const channel = await client.channels.fetch(process.env.CHAIN_BACKFILL_CHANNEL_ID);
+            const result = await chainBackfill.runChainBackfill(channel, client.user.id, { apply: process.env.CHAIN_BACKFILL_APPLY === 'true' });
+            console.log("chainBackfill finished: " + JSON.stringify(result));
             break;
         }
         default:
