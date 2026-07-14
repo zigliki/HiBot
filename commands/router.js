@@ -28,6 +28,11 @@ function botCommands(message, client){
         case("top-stats"):
             stats.getTop(message, client, args[0]);
             return;
+        case("chain"):
+        case("longest"):
+        case("longest-chain"):
+            stats.getChain(message);
+            return;
     }
 
     //server-admin (or bot admin) commands

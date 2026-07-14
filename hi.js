@@ -40,6 +40,33 @@ async function restartPings(client) {
     }
 }
 
+function advanceChain(data, userId, timestamp, botId){
+    //track the server's chain of consecutive valid hi's (HIB-28).
+    //chain boundary = the bot's revival hi: reaching it means the previous chain
+    //died (7 days quiet), so the bot's hi counts for no chain and the next human
+    //hi starts a fresh one.
+    if(userId == botId){
+        data.currentChain = { count: 0, participants: {}, startedAt: null };
+        return;
+    }
+    var cur = data.currentChain || { count: 0, participants: {}, startedAt: null };
+    cur.participants = cur.participants || {};
+    if(cur.count == 0) cur.startedAt = timestamp;
+    cur.count += 1;
+    cur.participants[userId] = (cur.participants[userId] || 0) + 1;
+    data.currentChain = cur;
+    //longestChain is a live snapshot of the record, including the ongoing chain
+    var longest = data.longestChain || { count: 0 };
+    if(cur.count > longest.count){
+        data.longestChain = {
+            count: cur.count,
+            participants: Object.assign({}, cur.participants),
+            startedAt: cur.startedAt,
+            endedAt: timestamp
+        };
+    }
+}
+
 async function checkHi(msg, client){
     if(msg.channel.name == "hi"){
         //check that the message was sent to #hi
@@ -78,6 +105,8 @@ async function checkHi(msg, client){
                     data.lastHi = msg.createdTimestamp
                     data.nextHi = data.lastHi + DAY_IN_MILLIS;
                     data.lastUser = msg.member.user.id;
+                    //maintain the server's hi chain (HIB-28)
+                    advanceChain(data, msg.member.user.id, msg.createdTimestamp, client.user.id);
                     if(data.lastUser != client.user.id){
                         //if the last hi wasn't from the bot, set up a ping for 7 days
                         console.log("  resetting ping timer")
@@ -113,4 +142,4 @@ function msToTime(duration) {
     return hours + ":" + minutes + ":" + seconds;
   }
 
-module.exports = { checkHi, restartPings };
+module.exports = { checkHi, restartPings, advanceChain };

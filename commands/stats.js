@@ -44,6 +44,35 @@ async function getFirstHi(message){
     message.channel.send("<@" + stat.user + "> your first hi here was " + new Date(stat.firstHi).toUTCString());
 }
 
+async function getChain(message){
+    //show the server's longest chain of consecutive valid hi's + who was in it (HIB-28)
+    var data = await db.getHi(message.guild.id);
+    var longest = data.longestChain;
+    if(!longest || !longest.count){
+        message.channel.send("no hi chain recorded for this server yet :slight_smile:");
+        return;
+    }
+    //participants: { userId: count } -> "name (xN)", biggest contributor first
+    var parts = Object.keys(longest.participants || {})
+        .map(function(uid){ return { uid: uid, n: longest.participants[uid] }; })
+        .sort(function(a, b){ return b.n - a.n; })
+        .map(function(p){
+            var member = message.guild.members.cache.get(p.uid);
+            var name = member ? member.displayName : "<@" + p.uid + ">";
+            return name + " (x" + p.n + ")";
+        });
+    var out =
+        "longest hi chain in this server: " + longest.count + " hi's\n" +
+        new Date(longest.startedAt).toUTCString() + " → " + new Date(longest.endedAt).toUTCString() + "\n" +
+        "participants: " + parts.join(", ");
+    //bonus: how the current running chain compares
+    var cur = data.currentChain;
+    if(cur && cur.count){
+        out += "\ncurrent chain: " + cur.count + " hi's and counting";
+    }
+    message.channel.send(out);
+}
+
 async function getTop(message, client, board){
     //leaderboards for a server, HiBot always excluded (revival his shouldn't rank) - HIB-2/HIB-28
     board = (board || "his").toLowerCase();
@@ -95,4 +124,4 @@ function sendBoard(message, board, userId, header, emptyMsg, valueFn){
     message.channel.send(header + "\n" + lines.join("\n"));
 }
 
-module.exports = { getUserStats, getFirstHi, getTop };
+module.exports = { getUserStats, getFirstHi, getTop, getChain };
