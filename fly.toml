@@ -1,8 +1,12 @@
-# STAGING config for HiBot (app: zigliki-hi-bot-staging).
-# This is the DEFAULT deploy target: a bare `fly deploy` deploys STAGING.
-# Production is fly.prod.toml -> deploy with:  fly deploy -c fly.prod.toml
+# HiBot PRODUCTION config (app: zigliki-hi-bot).
+# Standard convention: a bare `fly deploy` deploys production.
+#
+# There is NO separate staging fly app (avoids paying for a second machine).
+# For local dev/testing use:  npm run staging
+#   -> pauses the prod machine, runs the bot locally against the prod DB,
+#      and resumes prod on exit. See scripts/staging.sh.
 
-app = 'zigliki-hi-bot-staging'
+app = 'zigliki-hi-bot'
 primary_region = 'yyz'
 kill_signal = 'SIGINT'
 kill_timeout = '5s'
