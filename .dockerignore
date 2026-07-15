@@ -2,3 +2,4 @@
 fly.toml
 keys.env
 node_modules
+test

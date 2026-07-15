@@ -9,7 +9,7 @@
     "prod:pause": "bash scripts/prod.sh stop",
     "prod:resume": "bash scripts/prod.sh start",
     "pull-keys": "bash scripts/pull-keys.sh",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test"
   },
   "keywords": [],
   "author": "",
