@@ -1,3 +1,4 @@
 # flyctl launch added from .gitignore
 fly.toml
 keys.env
+node_modules
