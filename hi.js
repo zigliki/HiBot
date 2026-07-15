@@ -40,6 +40,42 @@ async function restartPings(client) {
     }
 }
 
+function advanceChain(data, userId, timestamp, botId, gapMs){
+    //track the server's chain of consecutive valid hi's (HIB-28). A chain breaks on:
+    //  - a bot revival hi (post-deploy): the bot only his to revive a dead chain, so
+    //    its hi is a boundary and never counts as a participant; the next human hi
+    //    starts a fresh chain.
+    //  - a gap of >= the break threshold between valid his: that long a quiet stretch
+    //    means the chain died. Defaults to PING_DELAY (7d, the revival window); the
+    //    backfill passes a tighter value for the pre-HiBot golden age (played daily).
+    var gap = gapMs || PING_DELAY;
+    if(userId == botId){
+        data.currentChain = { count: 0, participants: {}, startedAt: null, lastTs: null };
+        return;
+    }
+    var cur = data.currentChain || { count: 0, participants: {}, startedAt: null, lastTs: null };
+    cur.participants = cur.participants || {};
+    //a long quiet gap means the previous chain died - start a new one from this hi
+    if(cur.count > 0 && cur.lastTs != null && (timestamp - cur.lastTs) >= gap){
+        cur = { count: 0, participants: {}, startedAt: null, lastTs: null };
+    }
+    if(cur.count == 0) cur.startedAt = timestamp;
+    cur.count += 1;
+    cur.participants[userId] = (cur.participants[userId] || 0) + 1;
+    cur.lastTs = timestamp;
+    data.currentChain = cur;
+    //longestChain is a live snapshot of the record, including the ongoing chain
+    var longest = data.longestChain || { count: 0 };
+    if(cur.count > longest.count){
+        data.longestChain = {
+            count: cur.count,
+            participants: Object.assign({}, cur.participants),
+            startedAt: cur.startedAt,
+            endedAt: timestamp
+        };
+    }
+}
+
 async function checkHi(msg, client){
     if(msg.channel.name == "hi"){
         //check that the message was sent to #hi
@@ -78,6 +114,8 @@ async function checkHi(msg, client){
                     data.lastHi = msg.createdTimestamp
                     data.nextHi = data.lastHi + DAY_IN_MILLIS;
                     data.lastUser = msg.member.user.id;
+                    //maintain the server's hi chain (HIB-28)
+                    advanceChain(data, msg.member.user.id, msg.createdTimestamp, client.user.id);
                     if(data.lastUser != client.user.id){
                         //if the last hi wasn't from the bot, set up a ping for 7 days
                         console.log("  resetting ping timer")
@@ -113,4 +151,4 @@ function msToTime(duration) {
     return hours + ":" + minutes + ":" + seconds;
   }
 
-module.exports = { checkHi, restartPings };
+module.exports = { checkHi, restartPings, advanceChain };

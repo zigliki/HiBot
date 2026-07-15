@@ -1,14 +1,18 @@
 var db = require("../db");
 
-// One-off stats backfill (HIB-20). Not a normal part of the bot - it's run via the
-// tools framework (TOOLS=true, TOOL_TO_USE=backfill, BACKFILL_CHANNEL_ID=<#hi id>,
-// BACKFILL_APPLY=true to write). Clear those env vars once it has run.
-// Pages through a channel's full history and (optionally) writes per-user stats,
-// replaying the game rules over the past messages.
-async function runBackfill(channel, options) {
-    options = options || {};
-    const apply = options.apply === true;
+// Replaced accounts: old id -> current id. Fold history onto the account the person
+// uses now, so the earliest hi and combined totals land on that account.
+const REMAP = {
+    "128714146773598208": "201560166397771776", // deathslash1924 -> vinhtage_gamer
+    "128717967180431360": "338891480686919683"  // chrisk8837 -> mitonlid
+};
 
+// Page a channel's full history and replay the game rules into an ordered list of
+// valid his (oldest -> newest): content must be "hi", not the same user back-to-back.
+// NO 24h gap check - that rule was added later and shouldn't apply to history.
+// Replaced accounts are folded onto their current id. Shared by the stats backfill
+// (HIB-20) and the chain backfill (HIB-28) so both agree on what a valid hi is.
+async function collectValidHis(channel) {
     //page backwards through the entire channel history, 100 at a time
     var raw = [];
     var before;
@@ -24,31 +28,39 @@ async function runBackfill(channel, options) {
     //oldest -> newest (Discord returns newest first)
     raw.sort((a, b) => a.ts - b.ts);
 
-    //replay the rules: must be "hi" and not the same user back-to-back.
-    //NO time-gap check - the 24h rule was added later and shouldn't apply to history.
-    //fold replaced accounts into the current account (old id -> new id) so the
-    //earliest hi (and combined totals) land on the account the person uses now.
-    const REMAP = {
-        "128714146773598208": "201560166397771776", // deathslash1924 -> vinhtage_gamer
-        "128717967180431360": "338891480686919683"  // chrisk8837 -> mitonlid
-    };
-
-    const tally = new Map();
+    const his = [];
     var lastValidUser = null;
     for (const m of raw) {
         if (m.content.trim().toLowerCase() !== "hi") continue;
         const user = REMAP[m.user] || m.user;
         if (user === lastValidUser) continue;
+        his.push({ user: user, tag: m.tag, ts: m.ts });
+        lastValidUser = user;
+    }
+    return { rawCount: raw.length, his: his };
+}
 
-        var t = tally.get(user);
+// One-off stats backfill (HIB-20). Not a normal part of the bot - it's run via the
+// tools framework (TOOLS=true, TOOL_TO_USE=backfill, BACKFILL_CHANNEL_ID=<#hi id>,
+// BACKFILL_APPLY=true to write). Clear those env vars once it has run.
+async function runBackfill(channel, options) {
+    options = options || {};
+    const apply = options.apply === true;
+
+    const collected = await collectValidHis(channel);
+
+    //tally per-user stats from the ordered valid his (oldest -> newest, so the first
+    //occurrence is firstHi and the last is lastHi)
+    const tally = new Map();
+    for (const m of collected.his) {
+        var t = tally.get(m.user);
         if (!t) {
-            t = { user: user, tag: m.tag, successful: 0, firstHi: m.ts, lastHi: m.ts };
-            tally.set(user, t);
+            t = { user: m.user, tag: m.tag, successful: 0, firstHi: m.ts, lastHi: m.ts };
+            tally.set(m.user, t);
         }
         t.successful++;
         t.tag = m.tag;       //keep the most recent username for display
         t.lastHi = m.ts;
-        lastValidUser = user;
     }
 
     const serverId = channel.guild.id;
@@ -64,7 +76,7 @@ async function runBackfill(channel, options) {
     docs.sort((a, b) => b.successful - a.successful);
 
     //always log what we found (visible in fly logs) so a dry run is useful
-    console.log("backfill: " + raw.length + " messages, " + docs.length + " users" + (apply ? " (writing)" : " (dry run)"));
+    console.log("backfill: " + collected.rawCount + " messages, " + docs.length + " users" + (apply ? " (writing)" : " (dry run)"));
     for (const d of docs) {
         console.log("  " + d.tag + " (" + d.user + "): " + d.successful + " his, " +
             "first " + new Date(d.firstHi).toISOString().slice(0, 10) + ", " +
@@ -84,7 +96,7 @@ async function runBackfill(channel, options) {
         }
     }
 
-    return { total: raw.length, users: docs.length, applied: apply };
+    return { total: collected.rawCount, users: docs.length, applied: apply };
 }
 
-module.exports = { runBackfill };
+module.exports = { runBackfill, collectValidHis };

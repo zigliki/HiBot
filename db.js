@@ -34,7 +34,10 @@ async function newServer(serverId, botChannel) {
             botControl: botChannel,
             lastUser: 0,
             lastHi: 0,
-            nextHi: 0
+            nextHi: 0,
+            currentChain: { count: 0, participants: {}, startedAt: null, lastTs: null },
+            longestChain: { count: 0, participants: {}, startedAt: null, endedAt: null },
+            preChain: { count: 0, participants: {}, startedAt: null, endedAt: null }
         }
         await hi.insertOne(doc);
     }
@@ -48,7 +51,10 @@ async function setHi(data) {
             botControl: data.botControl,
             lastUser: data.lastUser,
             lastHi: data.lastHi,
-            nextHi: data.nextHi
+            nextHi: data.nextHi,
+            //chain state (HIB-28); default for docs created before chains existed
+            currentChain: data.currentChain || { count: 0, participants: {}, startedAt: null, lastTs: null },
+            longestChain: data.longestChain || { count: 0, participants: {}, startedAt: null, endedAt: null }
         },
     }
     const query = { server: data.server };
@@ -80,6 +86,17 @@ async function setOutputChannel(serverId, channelId){
     }
     const query = { server: serverId };
     await hi.updateOne(query, doc);
+}
+
+async function setChains(serverId, currentChain, longestChain, preChain) {
+    //targeted update of just the chain fields - used by the HIB-28 chain backfill so
+    //it doesn't clobber live game state (lastUser/lastHi/nextHi/botControl). preChain
+    //is the pre-HiBot golden-age longest; runtime never touches it, only the backfill.
+    await hi.updateOne({ server: serverId }, { $set: {
+        currentChain: currentChain,
+        longestChain: longestChain,
+        preChain: preChain
+    } });
 }
 
 async function getSettings() {
@@ -130,9 +147,12 @@ async function getUserStats(userId, serverId) {
     return await stats.findOne({ user: userId, server: serverId });
 }
 
-async function getTopStats(serverId, limit) {
-    //leaderboard for a server, most successful his first
-    return await stats.find({ server: serverId }).sort({ successful: -1 }).limit(limit).toArray();
+async function getServerStats(serverId, excludeUserId) {
+    //every user's stats for a server, most successful first; optionally exclude one
+    //user (HiBot excludes itself so its revival his don't skew rank/total) - HIB-28
+    const query = { server: serverId };
+    if (excludeUserId != null) query.user = { $ne: excludeUserId };
+    return await stats.find(query).sort({ successful: -1 }).toArray();
 }
 
 async function setStats(userId, serverId, fields) {
@@ -141,4 +161,4 @@ async function setStats(userId, serverId, fields) {
     await stats.updateOne({ user: userId, server: serverId }, doc, { upsert: true });
 }
 
-module.exports = { connect, close, newServer, getHi, setHi, getAllServers, setOutputChannel, getSettings, setSettings, recordHi, getUserStats, getTopStats, setStats }
+module.exports = { connect, close, newServer, getHi, setHi, getAllServers, setOutputChannel, getSettings, setSettings, recordHi, getUserStats, getServerStats, setStats, setChains }
