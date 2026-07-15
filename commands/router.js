@@ -31,7 +31,7 @@ function botCommands(message, client){
         case("chain"):
         case("longest"):
         case("longest-chain"):
-            stats.getChain(message);
+            stats.getChain(message, args[0]);
             return;
     }
 

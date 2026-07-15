@@ -62,28 +62,34 @@ async function getFirstHi(message, targetArg){
     reply(message, lead + " first hi here was " + new Date(stat.firstHi).toUTCString());
 }
 
-async function getChain(message){
-    //show the server's longest chain of consecutive valid hi's + who was in it (HIB-28)
+async function getChain(message, which){
+    //`chain` = HiBot-era longest; `chain prebot` = pre-HiBot golden-age longest (HIB-28)
+    var pre = ["pre", "prebot", "golden", "goldenage", "gold"].indexOf((which || "").toLowerCase()) !== -1;
     var data = await db.getHi(message.guild.id);
-    var longest = data.longestChain;
-    if(!longest || !longest.count){
-        reply(message,"no hi chain recorded for this server yet :slight_smile:");
+    var chain = pre ? data.preChain : data.longestChain;
+    if(!chain || !chain.count){
+        reply(message, pre
+            ? "no pre-HiBot golden-age chain recorded for this server yet :slight_smile:"
+            : "no hi chain recorded for this server yet :slight_smile:");
         return;
     }
-    //participants: { userId: count } -> "name (xN)", biggest contributor first
-    var parts = Object.keys(longest.participants || {})
-        .map(function(uid){ return { uid: uid, n: longest.participants[uid] }; })
+    //participants: { userId: count } -> mention (xN), biggest contributor first
+    var parts = Object.keys(chain.participants || {})
+        .map(function(uid){ return { uid: uid, n: chain.participants[uid] }; })
         .sort(function(a, b){ return b.n - a.n; })
         //render as mentions for consistent tags; allowedMentions keeps them ping-free
         .map(function(p){ return "<@" + p.uid + "> (x" + p.n + ")"; });
+    var label = pre ? "longest pre-HiBot chain (the golden age)" : "longest hi chain in this server";
     var out =
-        "longest hi chain in this server: " + longest.count + " hi's\n" +
-        new Date(longest.startedAt).toUTCString() + " → " + new Date(longest.endedAt).toUTCString() + "\n" +
+        label + ": " + chain.count + " hi's\n" +
+        new Date(chain.startedAt).toUTCString() + " → " + new Date(chain.endedAt).toUTCString() + "\n" +
         "participants: " + parts.join(", ");
-    //bonus: how the current running chain compares
-    var cur = data.currentChain;
-    if(cur && cur.count){
-        out += "\ncurrent chain: " + cur.count + " hi's and counting";
+    //bonus: the current running chain (HiBot-era view only)
+    if(!pre){
+        var cur = data.currentChain;
+        if(cur && cur.count){
+            out += "\ncurrent chain: " + cur.count + " hi's and counting";
+        }
     }
     reply(message,out);
 }

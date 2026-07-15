@@ -36,7 +36,8 @@ async function newServer(serverId, botChannel) {
             lastHi: 0,
             nextHi: 0,
             currentChain: { count: 0, participants: {}, startedAt: null, lastTs: null },
-            longestChain: { count: 0, participants: {}, startedAt: null, endedAt: null }
+            longestChain: { count: 0, participants: {}, startedAt: null, endedAt: null },
+            preChain: { count: 0, participants: {}, startedAt: null, endedAt: null }
         }
         await hi.insertOne(doc);
     }
@@ -87,10 +88,15 @@ async function setOutputChannel(serverId, channelId){
     await hi.updateOne(query, doc);
 }
 
-async function setChains(serverId, currentChain, longestChain) {
+async function setChains(serverId, currentChain, longestChain, preChain) {
     //targeted update of just the chain fields - used by the HIB-28 chain backfill so
-    //it doesn't clobber live game state (lastUser/lastHi/nextHi/botControl)
-    await hi.updateOne({ server: serverId }, { $set: { currentChain: currentChain, longestChain: longestChain } });
+    //it doesn't clobber live game state (lastUser/lastHi/nextHi/botControl). preChain
+    //is the pre-HiBot golden-age longest; runtime never touches it, only the backfill.
+    await hi.updateOne({ server: serverId }, { $set: {
+        currentChain: currentChain,
+        longestChain: longestChain,
+        preChain: preChain
+    } });
 }
 
 async function getSettings() {

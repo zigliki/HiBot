@@ -2,6 +2,10 @@ var db = require("../db");
 var hi = require("../hi");
 var backfill = require("./backfill");
 
+//pre-HiBot chains break on a 2-day quiet gap (the golden age was played near-daily,
+//the 11:59/12:01 era); the HiBot era uses the 7-day PING_DELAY / bot revivals - HIB-28
+const PRE_HIBOT_GAP = 2 * 86400000;
+
 // One-off chain backfill (HIB-28). Computes the all-time longest hi chain (+ its
 // participants) and the current in-progress chain for a server, from the full #hi
 // history. Run via the tools framework (TOOLS=true, TOOL_TO_USE=chainBackfill,
@@ -18,45 +22,60 @@ async function runChainBackfill(channel, botId, options) {
 
     const collected = await backfill.collectValidHis(channel);
 
-    //only count chains from the HiBot era: drop everything before the bot's first hi
-    //(its first revival ~= when it went live). Pre-deploy history had none of the chain
-    //rules (24h / back-to-back / revivals), so it shouldn't count toward chains (HIB-28).
+    //split history at the bot's first hi (its first revival ~= go-live). Everything
+    //before is the pre-HiBot "golden age"; everything from it onward is the HiBot era.
     const firstBotIdx = collected.his.findIndex(function(h){ return h.user === botId; });
+    const preHis = firstBotIdx === -1 ? [] : collected.his.slice(0, firstBotIdx);
     const era = firstBotIdx === -1 ? collected.his.slice() : collected.his.slice(firstBotIdx);
-    const dropped = collected.his.length - era.length;
     if (firstBotIdx === -1) {
-        console.log("chain backfill: WARNING - no bot hi found in history; counting ALL his (no era cutoff)");
+        console.log("chain backfill: WARNING - no bot hi found; treating all his as HiBot era");
     }
 
-    //replay through the exact runtime chain logic
+    //HiBot era: default PING_DELAY (7d) gap + bot revivals as boundaries
     var data = {
         currentChain: { count: 0, participants: {}, startedAt: null, lastTs: null },
         longestChain: { count: 0, participants: {}, startedAt: null, endedAt: null }
     };
-    for (const m of era) {
-        hi.advanceChain(data, m.user, m.ts, botId);
-    }
+    for (const m of era) hi.advanceChain(data, m.user, m.ts, botId);
+
+    //pre-HiBot golden age: no bot to revive, played near-daily, so a tighter gap breaks it
+    var preData = {
+        currentChain: { count: 0, participants: {}, startedAt: null, lastTs: null },
+        longestChain: { count: 0, participants: {}, startedAt: null, endedAt: null }
+    };
+    for (const m of preHis) hi.advanceChain(preData, m.user, m.ts, botId, PRE_HIBOT_GAP);
 
     const longest = data.longestChain;
     const current = data.currentChain;
+    const golden = preData.longestChain;
 
     //always log (visible in fly logs) so a dry run is useful
     console.log("chain backfill: " + collected.rawCount + " messages, " + collected.his.length +
-        " valid his, " + era.length + " in the HiBot era (dropped " + dropped + " pre-deploy)" +
+        " valid his (" + era.length + " HiBot-era, " + preHis.length + " pre-HiBot)" +
         (apply ? " (writing)" : " (dry run)"));
-    console.log("  longest chain: " + longest.count + " hi's" +
-        (longest.count ? " (" + isoDay(longest.startedAt) + " -> " + isoDay(longest.endedAt) + ")" : ""));
-    Object.keys(longest.participants || {})
-        .map(u => ({ u: u, n: longest.participants[u] }))
-        .sort((a, b) => b.n - a.n)
-        .forEach(p => console.log("    " + p.u + ": " + p.n));
+    logChain("HiBot-era longest", longest);
+    logChain("pre-HiBot golden longest", golden);
     console.log("  current (in-progress) chain: " + current.count + " hi's");
 
     if (apply) {
-        await db.setChains(channel.guild.id, current, longest);
+        await db.setChains(channel.guild.id, current, longest, golden);
     }
 
-    return { total: collected.rawCount, valid: collected.his.length, era: era.length, dropped: dropped, longest: longest.count, current: current.count, applied: apply };
+    return {
+        total: collected.rawCount, valid: collected.his.length,
+        era: era.length, pre: preHis.length,
+        longest: longest.count, golden: golden.count, current: current.count,
+        applied: apply
+    };
+}
+
+function logChain(label, chain) {
+    console.log("  " + label + ": " + chain.count + " hi's" +
+        (chain.count ? " (" + isoDay(chain.startedAt) + " -> " + isoDay(chain.endedAt) + ")" : ""));
+    Object.keys(chain.participants || {})
+        .map(function(u){ return { u: u, n: chain.participants[u] }; })
+        .sort(function(a, b){ return b.n - a.n; })
+        .forEach(function(p){ console.log("    " + p.u + ": " + p.n); });
 }
 
 function isoDay(ts) {

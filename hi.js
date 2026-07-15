@@ -40,14 +40,15 @@ async function restartPings(client) {
     }
 }
 
-function advanceChain(data, userId, timestamp, botId){
+function advanceChain(data, userId, timestamp, botId, gapMs){
     //track the server's chain of consecutive valid hi's (HIB-28). A chain breaks on:
     //  - a bot revival hi (post-deploy): the bot only his to revive a dead chain, so
     //    its hi is a boundary and never counts as a participant; the next human hi
     //    starts a fresh chain.
-    //  - a gap of >= PING_DELAY between valid his: that long a quiet stretch means the
-    //    chain died. This is the only boundary in pre-deploy history (no bot to revive),
-    //    and a backstop post-deploy if a revival ping was ever missed.
+    //  - a gap of >= the break threshold between valid his: that long a quiet stretch
+    //    means the chain died. Defaults to PING_DELAY (7d, the revival window); the
+    //    backfill passes a tighter value for the pre-HiBot golden age (played daily).
+    var gap = gapMs || PING_DELAY;
     if(userId == botId){
         data.currentChain = { count: 0, participants: {}, startedAt: null, lastTs: null };
         return;
@@ -55,7 +56,7 @@ function advanceChain(data, userId, timestamp, botId){
     var cur = data.currentChain || { count: 0, participants: {}, startedAt: null, lastTs: null };
     cur.participants = cur.participants || {};
     //a long quiet gap means the previous chain died - start a new one from this hi
-    if(cur.count > 0 && cur.lastTs != null && (timestamp - cur.lastTs) >= PING_DELAY){
+    if(cur.count > 0 && cur.lastTs != null && (timestamp - cur.lastTs) >= gap){
         cur = { count: 0, participants: {}, startedAt: null, lastTs: null };
     }
     if(cur.count == 0) cur.startedAt = timestamp;
