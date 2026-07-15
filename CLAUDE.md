@@ -42,6 +42,14 @@ running** — they re-run every restart. Both replay `#hi` history via the share
 - `chainBackfill` (HIB-28, longest+current chain): `CHAIN_BACKFILL_CHANNEL_ID`,
   `CHAIN_BACKFILL_APPLY=true` to write vs dry-run.
 
+### Tests (HIB-29)
+`npm test` runs a **`node:test`** suite (zero deps) over `test/*.test.js`. It covers the **pure
+logic only** — `hi.advanceChain` (chain growth / revival reset / gap + era thresholds),
+`commands/stats` (rank, share, `top` boards, `chain`/`prebot`, requester-only pings, `@user`
+lookup), and `tools/` backfill replay + era split — using light `db`/message/channel stubs. The
+connection layer (login / gateway / Mongo) is intentionally **not** tested. `test/` is excluded
+from the fly image (.dockerignore).
+
 ### Local "staging" (HIB-26)
 There is no staging app/DB. `npm run staging` (scripts/staging.sh) ensures the prod fly machine(s)
 are paused, then runs the SAME bot locally against the SAME prod token + prod Atlas DB. Prod MUST be
