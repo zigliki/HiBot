@@ -18,9 +18,9 @@ quiet, the bot posts `hi` itself to revive the chain. Runs in multiple servers a
 ## Layout
 - `index.js` — entry point: create client, wire events (ready/message/guildCreate), shutdown, login.
 - `hi.js` — the game (`checkHi`; chain revival via `restartPings`/`schedulePing`).
-- `db.js` — data layer; shared MongoClient. Collections: `hi` (per-server state, incl.
-  `currentChain`/`longestChain` — HIB-28), `settings` (single global doc),
-  `stats` (per-user-per-server: successful/avgHi/firstHi/lastHi).
+- `db.js` — data layer; shared MongoClient. Collections: `hi` (per-server state, incl. chain
+  fields `currentChain`/`longestChain` (HiBot-era) + `preChain` (pre-HiBot golden age) — HIB-28),
+  `settings` (single global doc), `stats` (per-user-per-server: successful/avgHi/firstHi/lastHi).
 - `config.js` — `applyStoredSettings` (re-applies stored activity on startup).
 - `commands/` — `router.js` (parse `@HiBot <cmd>` + dispatch), `admin.js` (pic/status/output),
   `stats.js` (`stats`/`first`/`top [board]`/`chain`).
@@ -28,8 +28,11 @@ quiet, the bot posts `hi` itself to revive the chain. Runs in multiple servers a
   exports shared `collectValidHis`), `chainBackfill.js` (HIB-28 longest-chain import).
 
 ### Commands (`@HiBot <command>`)
-- Public: `stats` / `my-stats`, `first` / `firsthi` / `first-hi`, `top` / `top-stats`
-  (`top`/`top his` = count, `top average` = lowest avg gap, min 10 hi's), `chain` / `longest`.
+- Public (append `@user` to `stats`/`first` to look up someone else; accepts `<@id>` and `<@!id>`):
+  `stats` / `my-stats`, `first` / `firsthi` / `first-hi`,
+  `top` / `top-stats` (`top`/`top his` = count, `top average` = lowest avg gap, min 10 hi's),
+  `chain` / `longest` (HiBot-era) and `chain prebot` (pre-HiBot "golden age", 2-day gap break).
+  Stats output pings only the requester (allowedMentions); others render as tags without a ping.
 - Server admins: `output`. Bot admin (`DEV`) only: `pic` / `status` (these also work by DMing the bot).
 
 ### One-off tools
