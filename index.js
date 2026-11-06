@@ -28,6 +28,12 @@ client.on('ready', async () => {
   }
 })
 
+//a stray rejection (e.g. a failed fire-and-forget DB write, HIB-21) would otherwise kill the
+//process with exit code 1 and leave the bot offline. log it loudly and keep running instead.
+process.on('unhandledRejection', (err) => console.error('unhandledRejection:', err));
+process.on('uncaughtException', (err) => console.error('uncaughtException:', err));
+client.on('error', (err) => console.error('discord client error:', err));
+
 //close the DB pool cleanly when the process is told to stop (e.g. on redeploy)
 async function shutdown() {
   await db.close();
@@ -45,8 +51,12 @@ client.on("guildCreate", guild => {
 
 // Register an event to handle incoming messages
 client.on('message', async msg => {
-    hi.checkHi(msg, client);
-    commands.botCommands(msg, client);
+    try {
+        await hi.checkHi(msg, client);
+        await commands.botCommands(msg, client);
+    } catch (err) {
+        console.error('message handler failed:', err);
+    }
 })
 
 // client.login logs the bot in and sets it up for use. You'll enter your token here.
