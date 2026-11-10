@@ -1,6 +1,8 @@
 const { ChannelType, PermissionFlagsBits } = require("discord.js");
 var admin = require("./admin");
 var stats = require("./stats");
+var parse = require("./args");
+var commandContext = require("../discord/commandContext");
 
 function botCommands(message, client){
     //bot admin can DM the bot to change global properties (HIB-6)
@@ -15,24 +17,25 @@ function botCommands(message, client){
     if(attention != prefix) return;
 
     //public commands: anyone can look up stats
+    var ctx = commandContext.fromMessage(message, client);
     switch(command){
         case("stats"):
         case("my-stats"):
-            stats.getUserStats(message, client, args[0]);
+            stats.getUserStats(ctx, parse.parseUserId(args[0]));
             return;
         case("first"):
         case("firsthi"):
         case("first-hi"):
-            stats.getFirstHi(message, args[0]);
+            stats.getFirstHi(ctx, parse.parseUserId(args[0]));
             return;
         case("top"):
         case("top-stats"):
-            stats.getTop(message, client, args[0]);
+            stats.getTop(ctx, args[0]);
             return;
         case("chain"):
         case("longest"):
         case("longest-chain"):
-            stats.getChain(message, args[0]);
+            stats.getChain(ctx, args[0]);
             return;
     }
 
