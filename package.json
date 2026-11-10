@@ -9,6 +9,7 @@
     "prod:pause": "bash scripts/prod.sh stop",
     "prod:resume": "bash scripts/prod.sh start",
     "pull-keys": "bash scripts/pull-keys.sh",
+    "logs": "node scripts/logs.js",
     "test": "node --test"
   },
   "keywords": [],

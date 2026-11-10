@@ -16,16 +16,39 @@ quiet, the bot posts `hi` itself to revive the chain. Runs in multiple servers a
   gitignored `keys.env` from prod's live secrets with `npm run pull-keys`.
 
 ## Layout
-- `index.js` — entry point: create client, wire events (ready/message/guildCreate), shutdown, login.
+- `index.js` — entry point: create client, wire events (ready/message/guildCreate/shard lifecycle),
+  fatal-error handling, shutdown (flush logs, then close DB), login.
+- `log.js` — the logger (HIB-32/HIB-9/HIB-11): `log.info('hi.valid', msg, meta)`, levels debug<info<warn<error,
+  independent sinks, `log.fatal` (log → flush → exit 1). `logMongo.js` — the MongoDB sink. Use these, not
+  `console.*`. See "Logging" below.
 - `hi.js` — the game (`checkHi`; chain revival via `restartPings`/`schedulePing`).
 - `db.js` — data layer; shared MongoClient. Collections: `hi` (per-server state, incl. chain
   fields `currentChain`/`longestChain` (HiBot-era) + `preChain` (pre-HiBot golden age) — HIB-28),
-  `settings` (single global doc), `stats` (per-user-per-server: successful/avgHi/firstHi/lastHi).
+  `settings` (single global doc), `stats` (per-user-per-server: successful/avgHi/firstHi/lastHi),
+  `logs` (daily log buckets — see Logging).
 - `config.js` — `applyStoredSettings` (re-applies stored activity on startup).
 - `commands/` — `router.js` (parse `@HiBot <cmd>` + dispatch), `admin.js` (pic/status/output),
   `stats.js` (`stats`/`first`/`top [board]`/`chain`).
 - `tools/` — `runner.js` (env-gated one-off tool dispatcher), `backfill.js` (HIB-20 stats import;
   exports shared `collectValidHis`), `chainBackfill.js` (HIB-28 longest-chain import).
+
+### Logging (HIB-32 / HIB-9 / HIB-11, epic HIB-13)
+One logger, independent sinks, each with its own min level via env (`debug|info|warn|error|off`):
+`LOG_CONSOLE_LEVEL` (default `info`; what `fly logs` shows), `LOG_MONGO_LEVEL` (default `debug`; the full
+record), `LOG_DISCORD_LEVEL` (default `info`; webhook sink, only active when `LOG_WEBHOOK` is set). Changing
+one on fly = `fly secrets set` (restarts the bot).
+- **Mongo `logs` collection = daily buckets**, one doc per bot run (`boot`) per UTC day (`day`) per size-roll
+  (`part`): counters (`n/warns/errors/firstTs/lastTs`) + a `lines` array of `{ts, level, lvl, event, msg, meta, seq}`.
+  TTL index on `day` (`LOG_MONGO_TTL_DAYS`, default 14). Writes are batched (~5s) and queued while Mongo is
+  down (capped; a `log.dropped` line marks any gap). The sink never logs through `log` (no recursion).
+- **Read them: `npm run logs -- --since 2h --level warn --event shard`**, or `--summary` for one row per
+  bot run (start, last seen, errors, gap before the next boot — how a crash looks from outside). Read-only;
+  needs `keys.env`.
+- **Fatal errors exit.** `uncaughtException`, a failed `db.connect()` and a failed login call `log.fatal`
+  (flush sinks, `exit(1)`); fly's `restart policy = always` brings the bot back. `unhandledRejection` is
+  logged only (HIB-30/HIB-21). Gateway (`shard.*`) and Mongo (`db.offline`/`db.online`) connectivity changes
+  are logged as events.
+- Event names are dotted (`hi.valid`, `hi.rejected.toosoon|sameuser|nothi`, `ping.*`, `shard.*`, `db.*`, `tool.*`).
 
 ### Commands (`@HiBot <command>`)
 - Public (append `@user` to `stats`/`first` to look up someone else; accepts `<@id>` and `<@!id>`):
@@ -46,7 +69,9 @@ running** — they re-run every restart. Both replay `#hi` history via the share
 `npm test` runs a **`node:test`** suite (zero deps) over `test/*.test.js`. It covers the **pure
 logic only** — `hi.advanceChain` (chain growth / revival reset / gap + era thresholds),
 `commands/stats` (rank, share, `top` boards, `chain`/`prebot`, requester-only pings, `@user`
-lookup), and `tools/` backfill replay + era split — using light `db`/message/channel stubs. The
+lookup), `tools/` backfill replay + era split, and the logger (`log`, the Mongo bucket sink, the
+`scripts/logs.js` query builder, `log.fatal`, the db topology watcher) — using light `db`/message/channel/
+collection stubs. The
 connection layer (login / gateway / Mongo) is intentionally **not** tested. `test/` is excluded
 from the fly image (.dockerignore).
 

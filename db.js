@@ -76,6 +76,11 @@ async function connect() {
     await ensureLogIndexes();
 }
 
+async function aggregateLogs(pipeline) {
+    //read-only access for scripts/logs.js
+    return await logs.aggregate(pipeline, { allowDiskUse: true }).toArray();
+}
+
 async function writeLogBucket(filter, update) {
     //upsert one daily log bucket (the logMongo sink builds the filter/update)
     await logs.updateOne(filter, update, { upsert: true });
@@ -225,4 +230,4 @@ async function setStats(userId, serverId, fields) {
     await stats.updateOne({ user: userId, server: serverId }, doc, { upsert: true });
 }
 
-module.exports = { connect, close, newServer, getHi, setHi, getAllServers, setOutputChannel, getSettings, setSettings, recordHi, getUserStats, getServerStats, setStats, setChains, writeLogBucket, createTopologyWatcher }
+module.exports = { connect, close, newServer, getHi, setHi, getAllServers, setOutputChannel, getSettings, setSettings, recordHi, getUserStats, getServerStats, setStats, setChains, writeLogBucket, aggregateLogs, createTopologyWatcher }
