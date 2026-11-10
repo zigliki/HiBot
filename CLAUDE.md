@@ -16,22 +16,31 @@ quiet, the bot posts `hi` itself to revive the chain. Runs in multiple servers a
   gitignored `keys.env` from prod's live secrets with `npm run pull-keys`.
 
 ## Layout
-- `index.js` — entry point: create client, wire events (ready/message/guildCreate/shard lifecycle),
-  fatal-error handling, shutdown (flush logs, then close DB), login.
-- `log.js` — the logger (HIB-32/HIB-9/HIB-11): `log.info('hi.valid', msg, meta)`, levels debug<info<warn<error,
-  independent sinks, `log.fatal` (log → flush → exit 1). `logMongo.js` / `logDiscord.js` — the MongoDB and
-  Discord-webhook sinks. Use these, not
-  `console.*`. See "Logging" below.
-- `hi.js` — the game (`checkHi`; chain revival via `restartPings`/`schedulePing`).
-- `db.js` — data layer; shared MongoClient. Collections: `hi` (per-server state, incl. chain
+Source lives in `src/` (HIB-36). Entry is `src/index.js` (`npm start`); it builds the client, adds the log sinks,
+registers the event files and the health monitor, then logs in.
+- `src/index.js` — wiring only. `src/client.js` — creates the discord.js client (intents/partials).
+- `src/events/` — one file per Discord event group: `ready.js` (connect DB, restore settings, re-arm pings, run
+  tools), `messageCreate.js` (hi check, then commands), `guildCreate.js`, `connection.js` (gateway/shard events,
+  logged). Each exports `register(client, ...)`; `src/index.js` lists them explicitly.
+- `src/lifecycle.js` — process handlers (unhandled rejection, fatal uncaught exception) and shutdown (flush logs,
+  then close the DB).
+- `src/logging/` — the logger (HIB-32/HIB-9/HIB-11): `index.js` is `log` (`log.info('hi.valid', msg, meta)`,
+  levels debug<info<warn<error, independent sinks, `log.fatal` = log → flush → exit 1), `mongoSink.js` and
+  `discordSink.js` are the sinks, `setup.js` adds them. Use these, not `console.*`. See "Logging" below.
+- `src/game/hi.js` — the game (`checkHi`; chain revival via `restartPings`/`schedulePing`).
+- `src/data/db.js` — data layer; shared MongoClient. Collections: `hi` (per-server state, incl. chain
   fields `currentChain`/`longestChain` (HiBot-era) + `preChain` (pre-HiBot golden age) — HIB-28),
   `settings` (single global doc), `stats` (per-user-per-server: successful/avgHi/firstHi/lastHi),
   `logs` (daily log buckets — see Logging).
-- `config.js` — `applyStoredSettings` (re-applies stored activity on startup).
-- `commands/` — `router.js` (parse `@HiBot <cmd>` + dispatch), `admin.js` (pic/status/output),
+- `src/settings.js` — `applyStoredSettings` (re-applies the stored activity on startup) and `activityEnum`.
+- `src/health.js` — heartbeat + watchdog (see Logging).
+- `src/commands/` — `router.js` (parse `@HiBot <cmd>` + dispatch), `admin.js` (pic/status/output),
   `stats.js` (`stats`/`first`/`top [board]`/`chain`).
-- `tools/` — `runner.js` (env-gated one-off tool dispatcher), `backfill.js` (HIB-20 stats import;
+- `src/tools/` — `runner.js` (env-gated one-off tool dispatcher), `backfill.js` (HIB-20 stats import;
   exports shared `collectValidHis`), `chainBackfill.js` (HIB-28 longest-chain import).
+- `scripts/` — shell helpers (`staging.sh`, `prod.sh`, `pull-keys.sh`) and `logs.js` (`npm run logs`).
+- `test/` — the `node:test` suite. `test/modules.test.js` loads every module under `src/`, so a wrong
+  `require` path fails `npm test` instead of crash-looping prod.
 
 ### Logging (HIB-32 / HIB-9 / HIB-11, epic HIB-13)
 One logger, independent sinks, each with its own min level via env (`debug|info|warn|error|off`):
@@ -53,7 +62,7 @@ one on fly = `fly secrets set` (restarts the bot).
   (flush sinks, `exit(1)`); fly's `restart policy = always` brings the bot back. `unhandledRejection` is
   logged only (HIB-30/HIB-21). Gateway (`shard.*`) and Mongo (`db.offline`/`db.online`) connectivity changes
   are logged as events.
-- **Health / dead-man's switch (HIB-34, `health.js`).** The bot pings a Healthchecks.io check
+- **Health / dead-man's switch (HIB-34, `src/health.js`).** The bot pings a Healthchecks.io check
   (`HEALTHCHECK_URL`, a secret; unset = off) every `HEALTHCHECK_INTERVAL_MS` (default 5 min) **only while
   healthy** = gateway READY and Mongo connected, so a bot that's "started" but disconnected goes quiet. When
   pings stop the service alerts us (check set to period 1h / grace 1h → worst-case ~2h; `log.fatal` also sends
