@@ -12,8 +12,7 @@ function register(client, mongoLog){
         try {
             await db.connect();
         } catch (err) {
-            //without the database nothing works. exit so fly restarts us and tries again, rather than
-            //sitting "ready" but broken.
+            //without the database nothing works: exit so fly restarts us and retries
             await log.fatal('db.connect.failed', 'could not connect to MongoDB: ' + err.message, err);
             return;
         }

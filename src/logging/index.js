@@ -1,9 +1,5 @@
-//In-house logger (HIB-32 / HIB-9 / HIB-11). One logger, several independent sinks (console, mongo,
-//discord). Each sink has its own minimum level, set by an env var, and `off` disables it.
-//
-//  log.info('hi.valid', 'valid hi from x', { guild, user })     event = short dotted name
-//
-//This file must not require db.js (db.js requires this one) - sinks that need the database get it injected.
+//the logger (HIB-32/HIB-9/HIB-11): independent sinks (console, mongo, discord), each with its own level from an env var
+//must not require db.js (db requires this), so sinks that need the database get it injected
 const crypto = require('crypto');
 
 const LEVELS = { debug: 10, info: 20, warn: 30, error: 40 };
@@ -13,7 +9,7 @@ const MAX_STACK = 2000;
 const DEFAULT_FLUSH_TIMEOUT = 3000;
 
 function parseLevel(raw, fallback) {
-    //env value -> numeric threshold. unset/blank -> fallback, `off` -> never logs, junk -> fallback (and say so)
+    //blank -> fallback, off -> never logs, junk -> fallback (and say so)
     if (raw == null || String(raw).trim() === '') return fallback;
     const v = String(raw).trim().toLowerCase();
     if (v === 'off') return OFF;
@@ -31,7 +27,7 @@ function serializeError(err) {
 }
 
 function cleanMeta(meta) {
-    //meta is stored as-is, so keep it small and JSON-safe: Errors become plain objects
+    //keep meta small and JSON-safe: Errors become plain objects
     if (meta == null) return undefined;
     if (meta instanceof Error) return { err: serializeError(meta) };
     if (typeof meta !== 'object') return { value: meta };
@@ -56,7 +52,7 @@ function formatLine(entry) {
 }
 
 function createConsoleSink(out) {
-    //out defaults to the global console, looked up at write time so it can be stubbed
+    //looked up at write time so tests can stub the console
     return {
         name: 'console',
         envVar: 'LOG_CONSOLE_LEVEL',
@@ -70,7 +66,7 @@ function createConsoleSink(out) {
 }
 
 function rawError(message) {
-    //last-resort reporting for a broken sink. never goes through log itself (no recursion, never throws)
+    //for a broken sink: never goes through log (no recursion) and never throws
     try {
         console.error(message);
     } catch (e) { /* nothing left to do */ }
@@ -84,7 +80,7 @@ function createLogger(opts) {
     const sinks = [];
     let seq = 0;
 
-    //sink: { name, envVar, defaultLevel, write(entry), flush()? } - write may return a promise
+    //sink: { name, envVar, defaultLevel, write(entry), flush? }, write may return a promise
     function addSink(sink) {
         const level = parseLevel(sink.envVar && env[sink.envVar], LEVELS[sink.defaultLevel]);
         const registered = { name: sink.name, level: level, write: sink.write, flush: sink.flush };
@@ -125,7 +121,7 @@ function createLogger(opts) {
     }
 
     async function flush(timeoutMs) {
-        //drain every sink (e.g. before exiting). bounded by a timeout and never rejects
+        //drain every sink, e.g. before exiting. bounded by a timeout, never rejects
         let timer;
         const timeout = new Promise((resolve) => { timer = setTimeout(resolve, timeoutMs == null ? DEFAULT_FLUSH_TIMEOUT : timeoutMs); });
         const drained = Promise.all(sinks.map((sink) => {
@@ -171,7 +167,7 @@ function createLogger(opts) {
     };
 }
 
-//the app-wide logger. the console sink is always registered; others (mongo, discord) are added at startup
+//the app-wide logger. console is always on, mongo and discord are added at startup
 const defaultLogger = createLogger();
 defaultLogger.addSink(createConsoleSink());
 

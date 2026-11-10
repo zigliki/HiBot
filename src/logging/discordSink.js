@@ -1,12 +1,9 @@
-//Discord webhook sink for log.js (HIB-9): posts log lines to a channel so you can watch what the bot is doing.
-//Only registered when LOG_WEBHOOK is set (index.js). A webhook is a plain HTTPS POST, so it keeps working when
-//the bot's own gateway connection is down - which is exactly when we most want to hear about it.
-//
-//Lines are batched (~5s) into messages under Discord's 2000-char limit, never ping anyone, respect rate limits
-//(429 -> wait retry_after, then resend), and wait in a capped queue if Discord is unreachable. Like the Mongo
-//sink it never logs through `log` itself (no recursion): problems are reported with raw console.error only.
-const MAX_MESSAGE = 1900;     //Discord caps a message at 2000 characters; leave headroom
-const MAX_LINE = 300;         //one log line can't eat a whole message
+//Discord webhook sink for the logger (HIB-9), only added when LOG_WEBHOOK is set. a webhook is plain HTTPS, so it
+//still works when the gateway is down. batched (~5s) under the 2000 char limit, never pings, respects rate limits,
+//queues (capped) if Discord is unreachable. never logs through log itself, problems go to console.error
+//discord caps a message at 2000 chars, leave headroom
+const MAX_MESSAGE = 1900;
+const MAX_LINE = 300;
 const ICONS = { debug: '🔹', info: 'ℹ️', warn: '⚠️', error: '🔴' };
 
 function rawReport(message) {
@@ -44,16 +41,19 @@ function createDiscordSink(opts) {
     const url = opts.url;
     const fetchFn = opts.fetch || globalThis.fetch;
     const flushIntervalMs = opts.flushIntervalMs || 5000;
-    const maxQueue = opts.maxQueue || 200;                        //oldest lines are dropped beyond this
-    const now = opts.now || Date.now;                             //ms
+    //the oldest lines are dropped beyond maxQueue
+    const maxQueue = opts.maxQueue || 200;
+    const now = opts.now || Date.now;
     const sleep = opts.sleep || ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
     const report = opts.report || rawReport;
 
-    let queue = [];                                               //already-formatted lines
+    //already-formatted lines
+    let queue = [];
     let dropped = 0;
     let flushing = null;
     let failing = false;
-    let pausedUntil = 0;                                          //rate-limited until this time (ms)
+    //rate limited until this time (ms)
+    let pausedUntil = 0;
     let timer = null;
 
     function trim() {
@@ -76,12 +76,12 @@ function createDiscordSink(opts) {
     }
 
     async function post(lines) {
-        //-> 'ok' | 'retry' (put it back, try again later) | 'drop' (Discord rejected it; resending won't help)
+        //ok, retry (try again later) or drop (rejected, resending won't help)
         try {
             const res = await fetchFn(url, {
                 method: 'POST',
                 headers: { 'content-type': 'application/json' },
-                //parse: [] = this message can never ping anyone, whatever the log line contains
+                //parse: [] means this can never ping anyone
                 body: JSON.stringify({ username: 'HiBot logs', content: lines.join('\n'), allowed_mentions: { parse: [] } })
             });
             if (res.ok) {
@@ -138,8 +138,7 @@ function createDiscordSink(opts) {
     }
 
     async function flush() {
-        //wait out any flush in progress, then send what's left. if we're rate-limited for a short while,
-        //wait it out (this is the exit path: don't lose the fatal message to a 1s limit)
+        //wait out any flush in progress, then send the rest. a short rate limit is waited out so a fatal message isn't lost
         while (flushing) await flushing;
         for (let attempt = 0; attempt < 2; attempt++) {
             const wait = pausedUntil - now();
