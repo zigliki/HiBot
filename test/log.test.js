@@ -1,6 +1,6 @@
 const { test } = require("node:test");
 const assert = require("node:assert");
-const { createLogger, createConsoleSink, parseLevel, formatLine, LEVELS } = require("../src/logging");
+const { createLogger, createConsoleSink, parseLevel, formatLine, contextTag, LEVELS } = require("../src/logging");
 
 // a sink that records what it was given; level comes from `env` via its envVar
 function recorder(name, envVar, defaultLevel) {
@@ -141,4 +141,23 @@ test("formatLine tolerates meta that can't be serialised", () => {
     circular.self = circular;
     const line = formatLine({ ts: new Date(0), level: "info", event: "e", msg: "", meta: circular });
     assert.match(line, /\[unserializable meta\]$/);
+});
+
+test("formatLine: [guild] prefix after the event, context keys left out of the printed meta", () => {
+    const base = { ts: new Date("2026-11-10T21:23:28.588Z"), level: "info", event: "hi.valid", msg: "kingnoskcaj said hi" };
+    const named = Object.assign({}, base, { meta: { guild: "3765", guildName: "Test Server", user: "1768", userTag: "kingnoskcaj" } });
+    assert.equal(formatLine(named), "2026-11-10T21:23:28.588Z INFO  hi.valid [Test Server] kingnoskcaj said hi");
+    //other meta is still printed
+    const extra = Object.assign({}, base, { meta: { guildName: "Test Server", inMs: 5 } });
+    assert.equal(formatLine(extra), '2026-11-10T21:23:28.588Z INFO  hi.valid [Test Server] kingnoskcaj said hi {"inMs":5}');
+    //only an id: the id is the prefix
+    const idOnly = Object.assign({}, base, { meta: { guild: "3765" } });
+    assert.equal(formatLine(idOnly), "2026-11-10T21:23:28.588Z INFO  hi.valid [3765] kingnoskcaj said hi");
+});
+
+test("contextTag: name, else id, else nothing", () => {
+    assert.equal(contextTag({ guildName: "A", guild: "1" }), "[A]");
+    assert.equal(contextTag({ guild: "1" }), "[1]");
+    assert.equal(contextTag({ inMs: 5 }), "");
+    assert.equal(contextTag(undefined), "");
 });

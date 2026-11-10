@@ -56,3 +56,14 @@ test("summarizeRuns: folds buckets per boot and reports the gap before the next 
     assert.equal(fmtDuration(45000), "45s");
     assert.equal(fmtDuration(600000), "10m");
 });
+
+test("--guild matches the guild id exactly or the name case-insensitively (escaped)", () => {
+    const opts = parseArgs(["--guild", "Test Server (dev)"], NOW);
+    assert.equal(opts.guild, "Test Server (dev)");
+    const p = buildPipeline(opts);
+    const match = p.find((stage) => stage.$match && stage.$match.$or).$match;
+    assert.deepEqual(match.$or[0], { "lines.meta.guild": "Test Server (dev)" });
+    assert.deepEqual(match.$or[1], { "lines.meta.guildName": { $regex: "^Test Server \\(dev\\)$", $options: "i" } });
+    //no --guild: no $or filter at all
+    assert.equal(buildPipeline(parseArgs([], NOW)).some((stage) => stage.$match && stage.$match.$or), false);
+});

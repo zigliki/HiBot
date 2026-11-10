@@ -55,7 +55,7 @@ one on fly = `fly secrets set` (restarts the bot).
   (`part`): counters (`n/warns/errors/firstTs/lastTs`) + a `lines` array of `{ts, level, lvl, event, msg, meta, seq}`.
   TTL index on `day` (`LOG_MONGO_TTL_DAYS`, default 14). Writes are batched (~5s) and queued while Mongo is
   down (capped; a `log.dropped` line marks any gap). The sink never logs through `log` (no recursion).
-- **Read them: `npm run logs -- --since 2h --level warn --event shard`**, or `--summary` for one row per
+- **Read them: `npm run logs -- --since 2h --level warn --event shard`** (`--guild <name|id>` for one server), or `--summary` for one row per
   bot run (start, last seen, errors, gap before the next boot — how a crash looks from outside). Read-only;
   needs `keys.env`.
 - **Fatal errors exit.** `uncaughtException`, a failed `db.connect()` and a failed login call `log.fatal`
@@ -72,6 +72,11 @@ one on fly = `fly secrets set` (restarts the bot).
   → fly restarts. Gateway only: restarting can't fix a Mongo outage. Events: `health.*`, `watchdog.*`.
   Set the URL with `fly secrets set HEALTHCHECK_URL=<url> -a zigliki-hi-bot` (restarts the bot) and add it to
   `keys.env` by hand for staging (`pull-keys` doesn't copy it).
+- **Guild context (HIB-33).** Lines about a server pass `logContext.forGuild(guild)` / `forMessage(msg)`
+  (`src/logging/context.js`) as meta (`guild` id, `guildName`, plus `user`/`userTag` for messages). The sinks print the
+  name as a `[Guild]` prefix and leave those keys out of the printed meta; Mongo keeps them all. Write the message as
+  a sentence (`kingnoskcaj said hi`), not "valid hi from …". Discord shows info lines as just `[time] [Guild] sentence`
+  and adds the bold event name only for warn/error; the console line always includes the event.
 - Event names are dotted (`hi.valid`, `hi.rejected.toosoon|sameuser|nothi`, `ping.*`, `shard.*`, `db.*`, `health.*`, `watchdog.*`, `tool.*`).
 
 ### Commands (`@HiBot <command>`)
