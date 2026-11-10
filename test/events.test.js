@@ -13,8 +13,9 @@ test("ready listens for clientReady", () => {
     assert.deepEqual(listensTo("ready", { setReady() {} }), ["clientReady"]);
 });
 
-test("messageCreate, guildCreate and guildDelete listen for their events", () => {
+test("messageCreate, interactionCreate, guildCreate and guildDelete listen for their events", () => {
     assert.deepEqual(listensTo("messageCreate"), ["messageCreate"]);
+    assert.deepEqual(listensTo("interactionCreate"), ["interactionCreate"]);
     assert.deepEqual(listensTo("guildCreate"), ["guildCreate"]);
     assert.deepEqual(listensTo("guildDelete"), ["guildDelete"]);
 });

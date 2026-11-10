@@ -9,4 +9,8 @@ function forMessage(msg){
     return Object.assign(forGuild(msg.guild), user ? { user: user.id, userTag: user.tag } : {});
 }
 
-module.exports = { forGuild, forMessage };
+function forInteraction(interaction){
+    return Object.assign(forGuild(interaction.guild), { user: interaction.user.id, userTag: interaction.user.tag });
+}
+
+module.exports = { forGuild, forMessage, forInteraction };

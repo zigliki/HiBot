@@ -10,6 +10,7 @@
     "prod:resume": "bash scripts/prod.sh start",
     "pull-keys": "bash scripts/pull-keys.sh",
     "logs": "node scripts/logs.js",
+    "register-commands": "node scripts/registerCommands.js",
     "test": "node --test"
   },
   "keywords": [],

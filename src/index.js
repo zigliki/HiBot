@@ -12,6 +12,7 @@ var connection = require("./events/connection");
 var guildCreate = require("./events/guildCreate");
 var guildDelete = require("./events/guildDelete");
 var messageCreate = require("./events/messageCreate");
+var interactionCreate = require("./events/interactionCreate");
 
 const client = createClient();
 const sinks = logSetup.addSinks(db.writeLogBucket);
@@ -22,6 +23,7 @@ connection.register(client);
 guildCreate.register(client);
 guildDelete.register(client);
 messageCreate.register(client);
+interactionCreate.register(client);
 
 //heartbeat to Healthchecks.io + watchdog (HIB-34). started right away so a login that never completes is caught too
 const healthMonitor = health.createHealth({ client: client, log: log, dbConnected: db.isConnected });

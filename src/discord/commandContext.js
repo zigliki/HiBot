@@ -15,4 +15,23 @@ function fromMessage(message, client){
     };
 }
 
-module.exports = { fromMessage };
+function fromInteraction(interaction, client){
+    var userId = interaction.user.id;
+    var ctx = {
+        guildId: interaction.guildId,
+        userId: userId,
+        botId: client.user.id,
+        replied: false,
+        reply: function(content){
+            //same rule as a message: only ping the requester
+            var payload = { content: content, allowedMentions: { users: [userId] } };
+            //the first reply fills in the deferred "thinking..." message, any more are follow-ups
+            var sent = ctx.replied ? interaction.followUp(payload) : interaction.editReply(payload);
+            ctx.replied = true;
+            return sent;
+        }
+    };
+    return ctx;
+}
+
+module.exports = { fromMessage, fromInteraction };
