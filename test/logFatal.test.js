@@ -59,3 +59,13 @@ test("topology watcher: never connecting at all is not a db.offline (startup fai
     w.topologyChanged(topo(["Unknown"]));
     assert.deepEqual(lines, []);
 });
+
+test("topology watcher: reports connected/disconnected to the isConnected flag", () => {
+    const flags = [];
+    const w = createTopologyWatcher({ warn() {}, error() {} }, () => 0, (v) => flags.push(v));
+    w.topologyChanged(topo(["Unknown"]));                 // never connected: no flag change
+    w.topologyChanged(topo(["RSPrimary", "RSSecondary"]));
+    w.topologyChanged(topo(["Unknown", "Unknown"]));
+    w.topologyChanged(topo(["RSPrimary", "Unknown"]));
+    assert.deepEqual(flags, [true, false, true]);
+});

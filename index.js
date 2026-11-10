@@ -4,6 +4,7 @@ require('dotenv').config({ path: './keys.env' })
 var log = require("./log");
 var logMongo = require("./logMongo");
 var logDiscord = require("./logDiscord");
+var health = require("./health");
 var hi = require("./hi");
 var db = require("./db");
 var config = require("./config")
@@ -78,9 +79,14 @@ client.on(Events.ShardError, (err, id) => log.error('shard.error', `shard ${id} 
 client.on(Events.Invalidated, () => log.error('client.invalidated', 'discord session invalidated'));
 client.on(Events.Warn, (message) => log.warn('client.warn', message));
 
+//heartbeat to Healthchecks.io + watchdog (HIB-34). started right away so a login that never completes is caught too
+const healthMonitor = health.createHealth({ client: client, log: log, dbConnected: db.isConnected });
+healthMonitor.start();
+
 //close the DB pool cleanly when the process is told to stop (e.g. on redeploy)
 async function shutdown(signal) {
   log.info('bot.shutdown', 'received ' + signal + ', shutting down');
+  healthMonitor.stop();
   await log.flush();        //before db.close(): the logs are written through the DB connection
   mongoLog.stop();
   if (discordLog) discordLog.stop();

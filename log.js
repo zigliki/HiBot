@@ -136,14 +136,25 @@ function createLogger(opts) {
         clearTimeout(timer);
     }
 
+    const fatalHooks = [];
+    function onFatal(fn) {
+        //fn(event, msg) runs when log.fatal is called (e.g. the fail heartbeat), best effort
+        fatalHooks.push(fn);
+    }
+
     let dying = false;
     async function fatal(event, msg, meta) {
-        //log, drain every sink, then exit 1 so the platform restarts us (fly: restart policy 'always').
-        //only the first fatal does anything; a second error while we're flushing is ignored.
+        //log, run the hooks, flush every sink, then exit 1 so fly restarts us. only the first fatal counts
         if (dying) return;
         dying = true;
         write('error', event, msg, meta);
-        await flush(opts.fatalFlushMs);
+        const limit = opts.fatalFlushMs == null ? DEFAULT_FLUSH_TIMEOUT : opts.fatalFlushMs;
+        let timer;
+        const timeout = new Promise((resolve) => { timer = setTimeout(resolve, limit); });
+        const hooks = Promise.all(fatalHooks.map((fn) => Promise.resolve(guard('fatal hook', () => fn(event, msg))).catch(() => {})));
+        await Promise.race([hooks, timeout]);
+        clearTimeout(timer);
+        await flush(limit);
         (opts.exit || process.exit)(1);
     }
 
@@ -152,6 +163,7 @@ function createLogger(opts) {
         addSink: addSink,
         flush: flush,
         fatal: fatal,
+        onFatal: onFatal,
         debug: (event, msg, meta) => write('debug', event, msg, meta),
         info: (event, msg, meta) => write('info', event, msg, meta),
         warn: (event, msg, meta) => write('warn', event, msg, meta),
