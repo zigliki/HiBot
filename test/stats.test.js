@@ -6,13 +6,13 @@ const stats = require("../commands/stats");
 const DAY = 86400000;
 const client = { user: { id: "BOT" } };
 
-// mock message; channel.send captures (content, options) so we can assert
+// mock message; channel.send captures the v14 {content, allowedMentions} payload so we can assert
 // output text AND that allowedMentions pings only the requester
 function mkMsg(userId, sink) {
     return {
         member: { user: { id: userId } },
         guild: { id: "g", members: { cache: { get: () => undefined } } },
-        channel: { send: (content, opts) => sink.push({ content, opts }) }
+        channel: { send: (opts) => sink.push({ content: opts.content, opts }) }
     };
 }
 

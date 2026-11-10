@@ -15,7 +15,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "discord.js": "^12.5.3",
+    "discord.js": "^14.28.1",
     "dotenv": "^16.0.3",
     "mongodb": "^5.1.0"
   }

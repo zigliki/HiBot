@@ -6,7 +6,7 @@ only counts if it's exactly `"hi"`, from a **different user than the previous va
 quiet, the bot posts `hi` itself to revive the chain. Runs in multiple servers at once.
 
 ## Stack & hosting
-- Node.js + **discord.js v12** (old API: `client.on('message')`, `<@id>` mentions) + **mongodb v5**.
+- Node.js + **discord.js v14** (HIB-31; needs explicit intents incl. privileged MessageContent; `<@id>` mentions) + **mongodb v5**.
 - **MongoDB Atlas.** One shared `MongoClient`, created once at startup and reused — keeps the
   cluster from going idle (HIB-19). Connect on boot, close on shutdown.
 - Deployed on **fly.io**. Single app `zigliki-hi-bot` (prod). **No staging app** — a second fly

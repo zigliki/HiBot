@@ -8,11 +8,22 @@ var commands = require("./commands/router")
 var tools = require("./tools/runner")
 
 // Import discord.js and create the client
-const Discord = require('discord.js')
-const client = new Discord.Client();
+const { Client, Events, GatewayIntentBits, Partials } = require('discord.js')
+//v14 needs explicit intents. MessageContent is privileged: it must also be switched on for the bot
+//in the Discord developer portal, or message.content arrives empty and no hi ever validates.
+//Channel partial = DMs (bot admin commands) arrive at all.
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.DirectMessages,
+  ],
+  partials: [Partials.Channel],
+});
 
 // Register an event so that when the bot is ready, it will log a messsage to the terminal
-client.on('ready', async () => {
+client.once(Events.ClientReady, async () => {
   console.log(`Logged in as ${client.user.tag}!`);
   await db.connect();
   await config.applyStoredSettings(client);
@@ -44,13 +55,13 @@ process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 
 //When joining a server, register with the db
-client.on("guildCreate", guild => {
+client.on(Events.GuildCreate, guild => {
     console.log("Joined a new guild: " + guild.name);
     db.newServer(guild.id, guild.channels.cache.find(channel => channel.name === "bot-control"))
 })
 
 // Register an event to handle incoming messages
-client.on('message', async msg => {
+client.on(Events.MessageCreate, async msg => {
     try {
         await hi.checkHi(msg, client);
         await commands.botCommands(msg, client);
