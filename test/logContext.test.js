@@ -12,3 +12,8 @@ test("forMessage: guild plus the author; a message with no member still works", 
     assert.deepEqual(forMessage(msg), { guild: "3765", guildName: "Test Server", user: "1768", userTag: "kingnoskcaj" });
     assert.deepEqual(forMessage({ guild: { id: "3765", name: "Test Server" } }), { guild: "3765", guildName: "Test Server" });
 });
+
+test("forMessage: a DM has no member, so the author is used", () => {
+    const dm = { author: { id: "OWNER", tag: "mark" } };
+    assert.deepEqual(forMessage(dm), { user: "OWNER", userTag: "mark" });
+});
