@@ -3,7 +3,7 @@
 //driver's connection pool and background heartbeats alive, which stops Atlas from
 //auto-pausing the cluster for inactivity (HIB-19).
 const { MongoClient } = require('mongodb');
-const log = require('./log');
+const log = require('../logging');
 const uri = "mongodb+srv://zigliki-admin:" + process.env.MONGO_PWD + "@hibot.nectjrd.mongodb.net/?retryWrites=true&w=majority";
 
 const client = new MongoClient(uri);

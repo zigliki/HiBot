@@ -1,8 +1,8 @@
 const { test } = require("node:test");
 const assert = require("node:assert");
 const { Status } = require("discord.js");
-const { createLogger } = require("../log");
-const { createHealth, numberEnv } = require("../health");
+const { createLogger } = require("../src/logging");
+const { createHealth, numberEnv } = require("../src/health");
 
 const T0 = Date.parse("2026-11-10T20:00:00Z");
 

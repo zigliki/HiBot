@@ -1,6 +1,6 @@
 const { test } = require("node:test");
 const assert = require("node:assert");
-const { createLogger, createConsoleSink, parseLevel, formatLine, LEVELS } = require("../log");
+const { createLogger, createConsoleSink, parseLevel, formatLine, LEVELS } = require("../src/logging");
 
 // a sink that records what it was given; level comes from `env` via its envVar
 function recorder(name, envVar, defaultLevel) {

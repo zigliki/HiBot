@@ -52,4 +52,4 @@ bash "$DIR/prod.sh" stop
 sleep 3
 
 echo "→ Starting local bot (Ctrl-C to stop)…"
-node index.js
+node src/index.js

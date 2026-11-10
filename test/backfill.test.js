@@ -1,8 +1,8 @@
 const { test } = require("node:test");
 const assert = require("node:assert");
-const db = require("../db");
-const backfill = require("../tools/backfill");
-const chainBackfill = require("../tools/chainBackfill");
+const db = require("../src/data/db");
+const backfill = require("../src/tools/backfill");
+const chainBackfill = require("../src/tools/chainBackfill");
 
 const DAY = 86400000;
 const BOT = "BOT";

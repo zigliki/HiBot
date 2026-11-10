@@ -1,6 +1,6 @@
-var db = require("../db");
-var log = require("../log");
-var hi = require("../hi");
+var db = require("../data/db");
+var log = require("../logging");
+var hi = require("../game/hi");
 var backfill = require("./backfill");
 
 //pre-HiBot chains break on a 2-day quiet gap (the golden age was played near-daily,

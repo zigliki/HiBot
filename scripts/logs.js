@@ -112,8 +112,8 @@ function fmtDuration(ms) {
 
 async function main() {
     require('dotenv').config({ path: path.join(__dirname, '..', 'keys.env') });
-    const db = require('../db');
-    const log = require('../log');
+    const db = require('../src/data/db');
+    const log = require('../src/logging');
     const opts = parseArgs(process.argv.slice(2));
     try {
         const rows = await db.aggregateLogs(buildPipeline(opts));

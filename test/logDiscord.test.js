@@ -1,7 +1,7 @@
 const { test } = require("node:test");
 const assert = require("node:assert");
-const { createLogger } = require("../log");
-const { createDiscordSink, formatEntry, chunkLines } = require("../logDiscord");
+const { createLogger } = require("../src/logging");
+const { createDiscordSink, formatEntry, chunkLines } = require("../src/logging/discordSink");
 
 const T0 = Date.parse("2026-11-10T22:34:32Z");
 

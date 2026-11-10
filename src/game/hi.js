@@ -1,5 +1,5 @@
-var db = require("./db");
-var log = require("./log");
+var db = require("../data/db");
+var log = require("../logging");
 
 const DAY_IN_MILLIS = 86400000;
 const PING_DELAY = DAY_IN_MILLIS * 7;
