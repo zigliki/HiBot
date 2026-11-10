@@ -13,7 +13,7 @@ const settings = database.collection("settings");
 const stats = database.collection("stats");
 const logs = database.collection("logs");
 
-//server types that can take writes. if none of the servers are one of these, we've lost the database.
+//server types that can take writes. none of them up means we've lost the database
 const WRITABLE_TYPES = ["RSPrimary", "Standalone", "Mongos", "LoadBalancer"];
 
 //true after connect() until the driver says we lost contact
@@ -23,10 +23,8 @@ function isConnected() {
 }
 
 function createTopologyWatcher(logger, now, setConnected) {
-    //turn the driver's topology events into two log lines: db.offline when the database becomes
-    //unreachable and db.online when it's back. transitions only - heartbeats fire every ~10s, so
-    //logging each one would drown everything. nothing is logged until we've been connected once
-    //(a failure to connect at startup is handled by connect()'s caller).
+    //turns the driver's topology events into db.offline / db.online log lines, on changes only (heartbeats fire every ~10s)
+    //silent until we've connected once, a startup failure is connect()'s caller's job
     now = now || Date.now;
     setConnected = setConnected || function () {};
     let everUp = false;
@@ -60,9 +58,8 @@ client.on("serverHeartbeatFailed", (ev) => topologyWatcher.heartbeatFailed(ev));
 client.on("topologyDescriptionChanged", (ev) => topologyWatcher.topologyChanged(ev));
 
 async function ensureLogIndexes() {
-    //logs are stored in daily buckets (see logMongo.js). the TTL index expires whole days; the unique
-    //index makes the bucket upsert one lookup and stops a bucket being created twice. a failure here
-    //must never stop the bot booting.
+    //logs are stored in daily buckets (see mongoSink.js). TTL on day expires whole days, the unique index stops duplicate buckets
+    //a failure here must never stop the bot booting
     const ttlSeconds = (Number(process.env.LOG_MONGO_TTL_DAYS) || 14) * 86400;
     try {
         await logs.createIndex({ boot: 1, day: 1, part: 1 }, { unique: true });
@@ -92,7 +89,7 @@ async function aggregateLogs(pipeline) {
 }
 
 async function writeLogBucket(filter, update) {
-    //upsert one daily log bucket (the logMongo sink builds the filter/update)
+    //upsert one daily log bucket (mongoSink builds the filter/update)
     await logs.updateOne(filter, update, { upsert: true });
 }
 

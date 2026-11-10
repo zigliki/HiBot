@@ -1,9 +1,8 @@
 const { Client, GatewayIntentBits, Partials } = require("discord.js");
 
 function createClient(){
-    //v14 needs explicit intents. MessageContent is privileged: it must also be switched on for the bot
-    //in the Discord developer portal, or message.content arrives empty and no hi ever validates.
-    //Channel partial = DMs (bot admin commands) arrive at all.
+    //v14 needs explicit intents. MessageContent is privileged: enable it in the developer portal too, or content is empty
+    //the Channel partial lets DMs (bot admin commands) arrive
     return new Client({
         intents: [
             GatewayIntentBits.Guilds,
