@@ -1,3 +1,4 @@
+var log = require("../log");
 var backfill = require("./backfill");
 var chainBackfill = require("./chainBackfill");
 
@@ -10,28 +11,28 @@ var chainBackfill = require("./chainBackfill");
 async function runTool(client) {
     const tool = process.env.TOOL_TO_USE;
     if (!tool) {
-        console.log("TOOLS is set but TOOL_TO_USE is empty - nothing to run");
+        log.warn("tool.skip", "TOOLS is set but TOOL_TO_USE is empty - nothing to run");
         return;
     }
-    console.log("running tool: " + tool);
+    log.info("tool.run", "running tool: " + tool);
 
     switch (tool) {
         case "backfill": {
             //BACKFILL_CHANNEL_ID = the #hi channel to backfill; BACKFILL_APPLY=true to write (else dry run)
             const channel = await client.channels.fetch(process.env.BACKFILL_CHANNEL_ID);
             const result = await backfill.runBackfill(channel, { apply: process.env.BACKFILL_APPLY === 'true' });
-            console.log("backfill finished: " + JSON.stringify(result));
+            log.info("tool.done", "backfill finished: " + JSON.stringify(result));
             break;
         }
         case "chainBackfill": {
             //CHAIN_BACKFILL_CHANNEL_ID = the #hi channel; CHAIN_BACKFILL_APPLY=true to write (else dry run)
             const channel = await client.channels.fetch(process.env.CHAIN_BACKFILL_CHANNEL_ID);
             const result = await chainBackfill.runChainBackfill(channel, client.user.id, { apply: process.env.CHAIN_BACKFILL_APPLY === 'true' });
-            console.log("chainBackfill finished: " + JSON.stringify(result));
+            log.info("tool.done", "chainBackfill finished: " + JSON.stringify(result));
             break;
         }
         default:
-            console.log("unknown tool: " + tool);
+            log.warn("tool.unknown", "unknown tool: " + tool);
     }
 }
 

@@ -11,7 +11,7 @@ function reply(message, content){
     //stats output names lots of users; only ever ping the requester, so running
     //`top`/`chain` etc. doesn't notify everyone on the board (HIB-28). Other <@id>
     //mentions still render as names, just without a ping.
-    return message.channel.send(content, { allowedMentions: { users: [message.member.user.id] } });
+    return message.channel.send({ content: content, allowedMentions: { users: [message.member.user.id] } });
 }
 
 function parseUserId(arg){

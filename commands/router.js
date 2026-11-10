@@ -1,9 +1,10 @@
+const { ChannelType, PermissionFlagsBits } = require("discord.js");
 var admin = require("./admin");
 var stats = require("./stats");
 
 function botCommands(message, client){
     //bot admin can DM the bot to change global properties (HIB-6)
-    if(message.channel.type == "dm"){
+    if(message.channel.type === ChannelType.DM){
         dmCommands(message, client);
         return;
     }
@@ -36,7 +37,7 @@ function botCommands(message, client){
     }
 
     //server-admin (or bot admin) commands
-    if(message.member.hasPermission('ADMINISTRATOR') || message.member.user.id == process.env.DEV){
+    if(message.member.permissions.has(PermissionFlagsBits.Administrator) || message.member.user.id == process.env.DEV){
         switch(command){
             case("output"):
                 admin.setOutputChannel(client, message.guild.id, args[0].slice(2, args[0].length - 1));

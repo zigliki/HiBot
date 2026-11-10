@@ -1,4 +1,5 @@
 var db = require("./db");
+var log = require("./log");
 
 const DAY_IN_MILLIS = 86400000;
 const PING_DELAY = DAY_IN_MILLIS * 7;
@@ -8,13 +9,16 @@ function schedulePing(server, channel, delay) {
     //(re)arm the ping timer for a server. when it fires, the bot says hi
     clearTimeout(pingArray[server]);
     pingArray[server] = setTimeout(function () {
-        channel.send("hi");
+        log.info("ping.fired", "7 days quiet, saying hi to revive the chain", { guild: server });
+        channel.send("hi").catch(function (err) {
+            log.error("ping.failed", "couldn't post the revival hi: " + err.message, { guild: server, err: err });
+        });
     }, delay);
 }
 
 async function restartPings(client) {
     //rebuild the in-memory ping timers from the DB after a restart
-    console.log("restarting ping timers");
+    log.info("ping.restart", "restarting ping timers");
     var servers = await db.getAllServers();
     for (const data of servers) {
         //the bot only ever pings to revive the chain; skip if the last hi was the bot's
@@ -24,18 +28,18 @@ async function restartPings(client) {
 
         var guild = client.guilds.cache.get(data.server);
         if (typeof guild == 'undefined') {
-            console.log("  no longer in guild " + data.server + ", skipping");
+            log.info("ping.skip", "no longer in guild " + data.server + ", skipping", { guild: data.server });
             continue;
         }
         var channel = guild.channels.cache.find(channel => channel.name === "hi");
         if (typeof channel == 'undefined') {
-            console.log("  no #hi channel in " + guild.name + ", skipping");
+            log.info("ping.skip", "no #hi channel in " + guild.name + ", skipping", { guild: data.server });
             continue;
         }
 
         //fire 7 days after the last hi, or right away if that's already passed
         var delay = Math.max(0, data.lastHi + PING_DELAY - Date.now());
-        console.log("  scheduling ping for " + guild.name + " in " + msToTime(delay));
+        log.info("ping.scheduled", "scheduling ping for " + guild.name + " in " + msToTime(delay), { guild: data.server, inMs: delay });
         schedulePing(data.server, channel, delay);
     }
 }
@@ -85,14 +89,14 @@ async function checkHi(msg, client){
         var botControlChannel = msg.guild.channels.cache.find(channel => channel.id === data.botControl)
 
         //log and process hi
-        console.log("[" + msg.createdTimestamp + "]: \"" + msg.content + "\" from " + msg.member.user.tag)
+        var who = { guild: msg.guild.id, user: msg.member.user.id };
+        log.debug("hi.message", "\"" + msg.content + "\" from " + msg.member.user.tag, who)
         if(msg.content == "hi"){
             //message is hi
-            console.log("  next \"hi\" expected at " + data.nextHi)
+            log.debug("hi.expected", "next \"hi\" expected at " + data.nextHi, who)
             if(msg.createdTimestamp < data.nextHi){
                 //not long enough since last hi
-                console.log("  not long enough since last \"hi\"")
-                console.log("  deleting \"hi\"")
+                log.info("hi.rejected.toosoon", "not long enough since last \"hi\", deleting it", who)
                 msg.delete();
                 //inform user why their hi is bad
                 if (typeof botControlChannel != 'undefined')
@@ -101,16 +105,14 @@ async function checkHi(msg, client){
                 //24 hours since last hi
                 if(msg.member.user.id == data.lastUser){
                     //invalid hi
-                    console.log("  same user as last \"hi\"")
-                    console.log("  deleting \"hi\"")
+                    log.info("hi.rejected.sameuser", "same user as last \"hi\", deleting it", who)
                     msg.delete();
                     //inform user why their hi is bad
                    if (typeof botControlChannel != 'undefined')
                     botControlChannel.send("Sorry <@" + msg.member.user.id + ">, you said the last hi\nLet somebody else say hi first :slight_smile:");
                 } else {
                     //valid new hi
-                    console.log("  valid \"hi\" from " + msg.member.user.tag)
-                    console.log("  updating data")
+                    log.info("hi.valid", "valid \"hi\" from " + msg.member.user.tag, who)
                     data.lastHi = msg.createdTimestamp
                     data.nextHi = data.lastHi + DAY_IN_MILLIS;
                     data.lastUser = msg.member.user.id;
@@ -118,7 +120,7 @@ async function checkHi(msg, client){
                     advanceChain(data, msg.member.user.id, msg.createdTimestamp, client.user.id);
                     if(data.lastUser != client.user.id){
                         //if the last hi wasn't from the bot, set up a ping for 7 days
-                        console.log("  resetting ping timer")
+                        log.debug("ping.reset", "resetting ping timer", who)
                         schedulePing(data.server, msg.channel, PING_DELAY);
                     }
                     db.setHi(data);
@@ -128,8 +130,7 @@ async function checkHi(msg, client){
             }
         } else {
             //message is not hi
-            console.log("  message is not \"hi\"")
-            console.log("  deleting message")
+            log.info("hi.rejected.nothi", "message is not \"hi\", deleting it", who)
             msg.delete();
             //inform user that only hi is allowed
            if (typeof botControlChannel != 'undefined')
