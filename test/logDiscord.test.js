@@ -28,22 +28,34 @@ function setup(opts) {
     return { posts, reports, responses, clock, sink, log };
 }
 
-test("formatEntry: icon, UTC time, bold event, message; long lines are truncated", () => {
-    const e = { ts: new Date(T0), level: "warn", event: "shard.disconnect", msg: "shard 0 disconnected (code 1006)" };
+test("formatEntry: warnings and errors keep the bold event name; long lines are truncated", () => {
+    const e = { ts: new Date(T0), level: "warn", lvl: 30, event: "shard.disconnect", msg: "shard 0 disconnected (code 1006)" };
     assert.equal(formatEntry(e), "⚠️ `22:34:32Z` **shard.disconnect** shard 0 disconnected (code 1006)");
+    assert.equal(formatEntry(Object.assign({}, e, { level: "error", lvl: 40 })).startsWith("🔴 `22:34:32Z` **shard.disconnect**"), true);
     assert.equal(formatEntry(Object.assign({}, e, { msg: "x".repeat(1000) })).length, 300);
+});
+
+test("formatEntry: info lines read as a sentence, with the [guild] prefix when there is one", () => {
+    const e = { ts: new Date(T0), level: "info", lvl: 20, event: "hi.valid", msg: "kingnoskcaj said hi" };
+    assert.equal(formatEntry(e), "ℹ️ `22:34:32Z` kingnoskcaj said hi");
+    const withGuild = Object.assign({}, e, { meta: { guild: "3765", guildName: "Test Server", user: "1" } });
+    assert.equal(formatEntry(withGuild), "ℹ️ `22:34:32Z` [Test Server] kingnoskcaj said hi");
+    const idOnly = Object.assign({}, e, { meta: { guild: "3765" } });
+    assert.equal(formatEntry(idOnly), "ℹ️ `22:34:32Z` [3765] kingnoskcaj said hi");
+    const warnWithGuild = { ts: new Date(T0), level: "warn", lvl: 30, event: "ping.failed", msg: "couldn't post the ping", meta: { guildName: "Test Server" } };
+    assert.equal(formatEntry(warnWithGuild), "⚠️ `22:34:32Z` [Test Server] **ping.failed** couldn't post the ping");
 });
 
 test("lines are batched into one message that can never ping anyone", async () => {
     const { posts, sink, log } = setup();
-    log.info("hi.valid", "valid hi from a");
+    log.info("hi.valid", "a said hi", { guildName: "Test Server" });
     log.error("fatal", "boom");
     await sink.flush();
     assert.equal(posts.length, 1);
     assert.equal(posts[0].url, "https://discord.test/hook");
     assert.deepEqual(posts[0].body.allowed_mentions, { parse: [] });
     assert.equal(posts[0].body.content.split("\n").length, 2);
-    assert.match(posts[0].body.content, /\*\*hi\.valid\*\*[\s\S]*\*\*fatal\*\*/);
+    assert.match(posts[0].body.content, /\[Test Server\] a said hi[\s\S]*\*\*fatal\*\* boom/);
 });
 
 test("chunkLines keeps every message under the limit and never splits a line", () => {
@@ -78,9 +90,9 @@ test("a long rate limit leaves the lines queued instead of blocking the exit pat
 test("5xx and network errors keep the lines and report once; recovery sends them in order", async () => {
     const { posts, reports, responses, sink, log } = setup();
     responses.push({ status: 503 });
-    log.info("a", "1");
+    log.info("a", "first");
     await sink.flush();
-    log.info("b", "2");
+    log.info("b", "second");
     responses.push({ status: 502 });
     await sink.flush();
     assert.equal(sink.pending(), 2);
@@ -88,7 +100,7 @@ test("5xx and network errors keep the lines and report once; recovery sends them
     await sink.flush();              // default 204
     assert.equal(sink.pending(), 0);
     const last = posts[posts.length - 1].body.content;
-    assert.ok(last.indexOf("**a**") < last.indexOf("**b**"));
+    assert.ok(last.indexOf("first") < last.indexOf("second"));
 });
 
 test("a rejected webhook (4xx) drops the message rather than retrying forever", async () => {
@@ -119,13 +131,13 @@ test("fetch throwing is contained and retried", async () => {
 
 test("queue is capped (oldest dropped) and the next message says how many were lost", async () => {
     const { posts, sink, log } = setup({ maxQueue: 3 });
-    for (let i = 1; i <= 5; i++) log.info("e" + i, "m");
+    for (let i = 1; i <= 5; i++) log.info("e", "line " + i);
     assert.equal(sink.pending(), 3);
     await sink.flush();
     const content = posts[0].body.content;
     assert.match(content, /2 log line\(s\) were dropped/);
-    assert.ok(!content.includes("**e1**") && !content.includes("**e2**"));
-    assert.ok(content.includes("**e5**"));
+    assert.ok(!content.includes("line 1") && !content.includes("line 2"));
+    assert.ok(content.includes("line 5"));
 });
 
 test("the sink's own level (LOG_DISCORD_LEVEL) decides what is posted", async () => {

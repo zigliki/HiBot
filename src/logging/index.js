@@ -38,12 +38,33 @@ function cleanMeta(meta) {
     return out;
 }
 
+//meta keys shown as the [guild] prefix or the sentence, so they're left out of the printed meta
+const CONTEXT_KEYS = ['guild', 'guildName', 'user', 'userTag'];
+
+function contextTag(meta) {
+    //[Guild Name], or [guild id] when we only have the id
+    const name = meta && (meta.guildName || meta.guild);
+    return name ? '[' + name + ']' : '';
+}
+
+function withoutContext(meta) {
+    if (!meta) return null;
+    const out = {};
+    for (const key of Object.keys(meta)) {
+        if (!CONTEXT_KEYS.includes(key)) out[key] = meta[key];
+    }
+    return Object.keys(out).length ? out : null;
+}
+
 function formatLine(entry) {
     let line = entry.ts.toISOString() + ' ' + entry.level.toUpperCase().padEnd(5) + ' ' + entry.event;
+    const tag = contextTag(entry.meta);
+    if (tag) line += ' ' + tag;
     if (entry.msg) line += ' ' + entry.msg;
-    if (entry.meta) {
+    const rest = withoutContext(entry.meta);
+    if (rest) {
         try {
-            line += ' ' + JSON.stringify(entry.meta);
+            line += ' ' + JSON.stringify(rest);
         } catch (e) {
             line += ' [unserializable meta]';
         }
@@ -171,4 +192,4 @@ function createLogger(opts) {
 const defaultLogger = createLogger();
 defaultLogger.addSink(createConsoleSink());
 
-module.exports = Object.assign(defaultLogger, { createLogger, createConsoleSink, parseLevel, formatLine, LEVELS });
+module.exports = Object.assign(defaultLogger, { createLogger, createConsoleSink, parseLevel, formatLine, contextTag, LEVELS });

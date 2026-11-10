@@ -1,6 +1,6 @@
 var db = require("../data/db");
 var log = require("../logging");
-var settings = require("../settings");
+var settings = require("../discord/settings");
 
 const ACTIVITY_TYPES = ["PLAYING", "STREAMING", "LISTENING", "WATCHING", "COMPETING"];
 

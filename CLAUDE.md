@@ -18,10 +18,14 @@ quiet, the bot posts `hi` itself to revive the chain. Runs in multiple servers a
 ## Layout
 Source lives in `src/` (HIB-36). Entry is `src/index.js` (`npm start`); it builds the client, adds the log sinks,
 registers the event files and the health monitor, then logs in.
-- `src/index.js` — wiring only. `src/client.js` — creates the discord.js client (intents/partials).
+- `src/index.js` — wiring only.
+- `src/discord/` — helpers that talk to the Discord API: `client.js` (creates the discord.js client: intents/partials),
+  `guildInfo.js` (`describeGuild`/`logGuild`/`logAll`: a `guild.info` line per server — members, #hi, bot-control — at
+  startup and on join, plus a `guild.problem` warning for anything wrong: no #hi, missing permissions in #hi, no
+  bot-control channel), `settings.js` (`applyStoredSettings` re-applies the stored activity on startup, `activityEnum`).
 - `src/events/` — one file per Discord event group: `ready.js` (connect DB, restore settings, re-arm pings, run
-  tools), `messageCreate.js` (hi check, then commands), `guildCreate.js`, `connection.js` (gateway/shard events,
-  logged). Each exports `register(client, ...)`; `src/index.js` lists them explicitly.
+  tools, log each server's info), `messageCreate.js` (hi check, then commands), `guildCreate.js` / `guildDelete.js`
+  (server joined / left), `connection.js` (gateway/shard events, logged). Each exports `register(client, ...)`; `src/index.js` lists them explicitly.
 - `src/lifecycle.js` — process handlers (unhandled rejection, fatal uncaught exception) and shutdown (flush logs,
   then close the DB).
 - `src/logging/` — the logger (HIB-32/HIB-9/HIB-11): `index.js` is `log` (`log.info('hi.valid', msg, meta)`,
@@ -32,7 +36,6 @@ registers the event files and the health monitor, then logs in.
   fields `currentChain`/`longestChain` (HiBot-era) + `preChain` (pre-HiBot golden age) — HIB-28),
   `settings` (single global doc), `stats` (per-user-per-server: successful/avgHi/firstHi/lastHi),
   `logs` (daily log buckets — see Logging).
-- `src/settings.js` — `applyStoredSettings` (re-applies the stored activity on startup) and `activityEnum`.
 - `src/health.js` — heartbeat + watchdog (see Logging).
 - `src/commands/` — `router.js` (parse `@HiBot <cmd>` + dispatch), `admin.js` (pic/status/output),
   `stats.js` (`stats`/`first`/`top [board]`/`chain`).
@@ -55,7 +58,7 @@ one on fly = `fly secrets set` (restarts the bot).
   (`part`): counters (`n/warns/errors/firstTs/lastTs`) + a `lines` array of `{ts, level, lvl, event, msg, meta, seq}`.
   TTL index on `day` (`LOG_MONGO_TTL_DAYS`, default 14). Writes are batched (~5s) and queued while Mongo is
   down (capped; a `log.dropped` line marks any gap). The sink never logs through `log` (no recursion).
-- **Read them: `npm run logs -- --since 2h --level warn --event shard`**, or `--summary` for one row per
+- **Read them: `npm run logs -- --since 2h --level warn --event shard`** (`--guild <name|id>` for one server), or `--summary` for one row per
   bot run (start, last seen, errors, gap before the next boot — how a crash looks from outside). Read-only;
   needs `keys.env`.
 - **Fatal errors exit.** `uncaughtException`, a failed `db.connect()` and a failed login call `log.fatal`
@@ -72,6 +75,11 @@ one on fly = `fly secrets set` (restarts the bot).
   → fly restarts. Gateway only: restarting can't fix a Mongo outage. Events: `health.*`, `watchdog.*`.
   Set the URL with `fly secrets set HEALTHCHECK_URL=<url> -a zigliki-hi-bot` (restarts the bot) and add it to
   `keys.env` by hand for staging (`pull-keys` doesn't copy it).
+- **Guild context (HIB-33).** Lines about a server pass `logContext.forGuild(guild)` / `forMessage(msg)`
+  (`src/logging/context.js`) as meta (`guild` id, `guildName`, plus `user`/`userTag` for messages). The sinks print the
+  name as a `[Guild]` prefix and leave those keys out of the printed meta; Mongo keeps them all. Write the message as
+  a sentence (`kingnoskcaj said hi`), not "valid hi from …". Discord shows info lines as just `[time] [Guild] sentence`
+  and adds the bold event name only for warn/error; the console line always includes the event.
 - Event names are dotted (`hi.valid`, `hi.rejected.toosoon|sameuser|nothi`, `ping.*`, `shard.*`, `db.*`, `health.*`, `watchdog.*`, `tool.*`).
 
 ### Commands (`@HiBot <command>`)

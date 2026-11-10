@@ -10,6 +10,7 @@
 //   --level <name>       minimum level: debug|info|warn|error (default debug = everything)
 //   --event <prefix>     only events starting with this, e.g. hi.rejected or shard
 //   --boot <id>          only one bot run
+//   --guild <name|id>    only lines about one server (name is case-insensitive)
 //   --limit <n>          newest n matching lines (default 200)
 //   --summary            list bot runs instead of lines
 //   --json               raw JSON, one object per line
@@ -31,7 +32,7 @@ function parseTime(value, now) {
 
 function parseArgs(argv, now) {
     now = now || Date.now();
-    const opts = { since: parseTime('1h', now), until: new Date(now), minLevel: LEVELS.debug, event: null, boot: null, limit: 200, summary: false, json: false };
+    const opts = { since: parseTime('1h', now), until: new Date(now), minLevel: LEVELS.debug, event: null, boot: null, guild: null, limit: 200, summary: false, json: false };
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i];
         const next = () => {
@@ -49,6 +50,7 @@ function parseArgs(argv, now) {
             }
             case '--event': opts.event = next(); break;
             case '--boot': opts.boot = next(); break;
+            case '--guild': opts.guild = next(); break;
             case '--limit': opts.limit = Number(next()); if (!(opts.limit > 0)) throw new Error('--limit must be a positive number'); break;
             case '--summary': opts.summary = true; break;
             case '--json': opts.json = true; break;
@@ -75,6 +77,12 @@ function buildPipeline(opts) {
     }
     const line = { 'lines.ts': { $gte: opts.since, $lte: opts.until }, 'lines.lvl': { $gte: opts.minLevel } };
     if (opts.event) line['lines.event'] = { $regex: '^' + escapeRegex(opts.event) };
+    if (opts.guild) {
+        line.$or = [
+            { 'lines.meta.guild': opts.guild },
+            { 'lines.meta.guildName': { $regex: '^' + escapeRegex(opts.guild) + '$', $options: 'i' } }
+        ];
+    }
     return [
         { $match: bucket },
         { $unwind: '$lines' },

@@ -1,6 +1,8 @@
 //Discord webhook sink for the logger (HIB-9), only added when LOG_WEBHOOK is set. a webhook is plain HTTPS, so it
 //still works when the gateway is down. batched (~5s) under the 2000 char limit, never pings, respects rate limits,
 //queues (capped) if Discord is unreachable. never logs through log itself, problems go to console.error
+var contextTag = require("./index").contextTag;
+
 //discord caps a message at 2000 chars, leave headroom
 const MAX_MESSAGE = 1900;
 const MAX_LINE = 300;
@@ -13,9 +15,12 @@ function rawReport(message) {
 }
 
 function formatEntry(entry) {
-    //e.g.  ⚠️ `22:34:32Z` **shard.disconnect** shard 0 disconnected (code 1006)
+    //info lines read as a sentence: ℹ️ `21:23:28Z` [Test Server] kingnoskcaj said hi
+    //warnings and errors keep the event name: ⚠️ `22:34:32Z` **shard.disconnect** shard 0 disconnected (code 1006)
     const time = entry.ts.toISOString().slice(11, 19) + 'Z';
-    const line = ICONS[entry.level] + ' `' + time + '` **' + entry.event + '**' + (entry.msg ? ' ' + entry.msg : '');
+    const tag = contextTag(entry.meta);
+    const event = entry.lvl >= 30 ? ' **' + entry.event + '**' : '';
+    const line = ICONS[entry.level] + ' `' + time + '`' + (tag ? ' ' + tag : '') + event + (entry.msg ? ' ' + entry.msg : '');
     return line.length > MAX_LINE ? line.slice(0, MAX_LINE - 1) + '…' : line;
 }
 

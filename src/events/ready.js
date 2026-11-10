@@ -1,8 +1,9 @@
 const { Events } = require("discord.js");
 var log = require("../logging");
 var db = require("../data/db");
-var settings = require("../settings");
+var settings = require("../discord/settings");
 var hi = require("../game/hi");
+var guildInfo = require("../discord/guildInfo");
 var tools = require("../tools/runner");
 
 function register(client, mongoLog){
@@ -19,6 +20,7 @@ function register(client, mongoLog){
         mongoLog.setReady();
         await settings.applyStoredSettings(client);
         hi.restartPings(client);
+        guildInfo.logAll(client);
 
         //on-demand maintenance tools, gated behind env (TOOLS=true + TOOL_TO_USE=<name>). see tools/runner.js
         if (process.env.TOOLS === 'true') {

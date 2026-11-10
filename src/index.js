@@ -5,11 +5,12 @@ var log = require("./logging");
 var logSetup = require("./logging/setup");
 var health = require("./health");
 var db = require("./data/db");
-var createClient = require("./client");
+var createClient = require("./discord/client");
 var lifecycle = require("./lifecycle");
 var ready = require("./events/ready");
 var connection = require("./events/connection");
 var guildCreate = require("./events/guildCreate");
+var guildDelete = require("./events/guildDelete");
 var messageCreate = require("./events/messageCreate");
 
 const client = createClient();
@@ -19,6 +20,7 @@ log.info('bot.start', 'starting HiBot', { boot: log.boot, node: process.version,
 ready.register(client, sinks.mongoLog);
 connection.register(client);
 guildCreate.register(client);
+guildDelete.register(client);
 messageCreate.register(client);
 
 //heartbeat to Healthchecks.io + watchdog (HIB-34). started right away so a login that never completes is caught too
