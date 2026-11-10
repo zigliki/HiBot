@@ -1,9 +1,9 @@
 const { Events } = require("discord.js");
 var log = require("../logging");
 var db = require("../data/db");
-var settings = require("../settings");
+var settings = require("../discord/settings");
 var hi = require("../game/hi");
-var guildInfo = require("../guildInfo");
+var guildInfo = require("../discord/guildInfo");
 var tools = require("../tools/runner");
 
 function register(client, mongoLog){

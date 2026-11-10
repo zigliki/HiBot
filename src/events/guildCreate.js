@@ -2,7 +2,7 @@ const { Events } = require("discord.js");
 var log = require("../logging");
 var logContext = require("../logging/context");
 var db = require("../data/db");
-var guildInfo = require("../guildInfo");
+var guildInfo = require("../discord/guildInfo");
 
 async function handle(guild){
     log.info('guild.joined', "the bot joined a new server", logContext.forGuild(guild));

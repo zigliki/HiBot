@@ -1,7 +1,7 @@
 const { PermissionFlagsBits } = require("discord.js");
-var log = require("./logging");
-var logContext = require("./logging/context");
-var db = require("./data/db");
+var log = require("../logging");
+var logContext = require("../logging/context");
+var db = require("../data/db");
 
 //what the bot needs in #hi: see it, post, delete other people's messages
 const NEEDED = [
