@@ -1,4 +1,4 @@
-var log = require("../log");
+var log = require("../logging");
 var backfill = require("./backfill");
 var chainBackfill = require("./chainBackfill");
 

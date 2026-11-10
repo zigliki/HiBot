@@ -1,7 +1,7 @@
 const { test } = require("node:test");
 const assert = require("node:assert");
-const db = require("../db");
-const stats = require("../commands/stats");
+const db = require("../src/data/db");
+const stats = require("../src/commands/stats");
 
 const DAY = 86400000;
 const client = { user: { id: "BOT" } };

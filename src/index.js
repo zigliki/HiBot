@@ -1,13 +1,13 @@
 require('dotenv').config({ path: './keys.env' })
 
 //import modules (log first: it reads the LOG_* env vars, which dotenv has just loaded)
-var log = require("./log");
-var logMongo = require("./logMongo");
-var logDiscord = require("./logDiscord");
+var log = require("./logging");
+var logMongo = require("./logging/mongoSink");
+var logDiscord = require("./logging/discordSink");
 var health = require("./health");
-var hi = require("./hi");
-var db = require("./db");
-var config = require("./config")
+var hi = require("./game/hi");
+var db = require("./data/db");
+var config = require("./settings")
 var commands = require("./commands/router")
 var tools = require("./tools/runner")
 

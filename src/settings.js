@@ -1,5 +1,5 @@
-var db = require("./db");
-var log = require("./log");
+var db = require("./data/db");
+var log = require("./logging");
 var admin = require("./commands/admin");
 
 async function applyStoredSettings(client){

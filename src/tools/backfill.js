@@ -1,5 +1,5 @@
-var db = require("../db");
-var log = require("../log");
+var db = require("../data/db");
+var log = require("../logging");
 
 // Replaced accounts: old id -> current id. Fold history onto the account the person
 // uses now, so the earliest hi and combined totals land on that account.

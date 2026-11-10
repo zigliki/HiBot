@@ -1,4 +1,4 @@
-var db = require("../db");
+var db = require("../data/db");
 
 function formatDuration(ms){
     //ms -> human-ish "Xd Yh" for stat display

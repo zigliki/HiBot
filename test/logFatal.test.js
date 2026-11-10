@@ -1,7 +1,7 @@
 const { test } = require("node:test");
 const assert = require("node:assert");
-const { createLogger } = require("../log");
-const { createTopologyWatcher } = require("../db");
+const { createLogger } = require("../src/logging");
+const { createTopologyWatcher } = require("../src/data/db");
 
 test("fatal logs, flushes every sink, then exits 1 - in that order, and only once", async () => {
     const order = [];

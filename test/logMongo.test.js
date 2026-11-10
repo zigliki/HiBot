@@ -1,7 +1,7 @@
 const { test } = require("node:test");
 const assert = require("node:assert");
-const { createLogger } = require("../log");
-const { createMongoSink } = require("../logMongo");
+const { createLogger } = require("../src/logging");
+const { createMongoSink } = require("../src/logging/mongoSink");
 
 const DAY = Date.parse("2026-11-10T00:00:00Z");
 

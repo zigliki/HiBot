@@ -1,6 +1,6 @@
 const { test } = require("node:test");
 const assert = require("node:assert");
-const hi = require("../hi");
+const hi = require("../src/game/hi");
 
 const DAY = 86400000;
 const BOT = "BOT";

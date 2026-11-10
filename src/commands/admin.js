@@ -1,5 +1,5 @@
-var db = require("../db");
-var log = require("../log");
+var db = require("../data/db");
+var log = require("../logging");
 const { ActivityType } = require("discord.js");
 
 //activity types are stored/typed as upper-case names; v14 wants the ActivityType enum
