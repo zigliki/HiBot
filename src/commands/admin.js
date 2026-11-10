@@ -1,12 +1,8 @@
 var db = require("../data/db");
 var log = require("../logging");
-const { ActivityType } = require("discord.js");
+var settings = require("../settings");
 
-//activity types are stored/typed as upper-case names; v14 wants the ActivityType enum
 const ACTIVITY_TYPES = ["PLAYING", "STREAMING", "LISTENING", "WATCHING", "COMPETING"];
-function activityEnum(type){
-    return ActivityType[type.charAt(0) + type.slice(1).toLowerCase()];
-}
 
 //pic/status: bot-admin (DEV) commands to change global bot properties (HIB-6)
 function adminCommand(client, command, args, reply){
@@ -52,9 +48,9 @@ async function setBotProfilePicture(client, url, reply){
 }
 
 async function setBotStatus(client, activity, type, reply){
-    client.user.setActivity(activity, { type: activityEnum(type) });
+    client.user.setActivity(activity, { type: settings.activityEnum(type) });
     await db.setSettings({ activity: activity, activity_type: type });
     if(reply) reply("status set to " + type + " " + activity + " :+1:");
 }
 
-module.exports = { adminCommand, setOutputChannel, activityEnum };
+module.exports = { adminCommand, setOutputChannel };
