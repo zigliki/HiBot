@@ -3,6 +3,7 @@
 //driver's connection pool and background heartbeats alive, which stops Atlas from
 //auto-pausing the cluster for inactivity (HIB-19).
 const { MongoClient } = require('mongodb');
+const log = require('./log');
 const uri = "mongodb+srv://zigliki-admin:" + process.env.MONGO_PWD + "@hibot.nectjrd.mongodb.net/?retryWrites=true&w=majority";
 
 const client = new MongoClient(uri);
@@ -10,11 +11,74 @@ const database = client.db("HiBot");
 const hi = database.collection("hi");
 const settings = database.collection("settings");
 const stats = database.collection("stats");
+const logs = database.collection("logs");
+
+//server types that can take writes. if none of the servers are one of these, we've lost the database.
+const WRITABLE_TYPES = ["RSPrimary", "Standalone", "Mongos", "LoadBalancer"];
+
+function createTopologyWatcher(logger, now) {
+    //turn the driver's topology events into two log lines: db.offline when the database becomes
+    //unreachable and db.online when it's back. transitions only - heartbeats fire every ~10s, so
+    //logging each one would drown everything. nothing is logged until we've been connected once
+    //(a failure to connect at startup is handled by connect()'s caller).
+    now = now || Date.now;
+    let everUp = false;
+    let offlineSince = null;
+    let lastFailure = null;
+    return {
+        heartbeatFailed(ev) {
+            lastFailure = ev && ev.failure && ev.failure.message;
+        },
+        topologyChanged(ev) {
+            const up = [...ev.newDescription.servers.values()].some((s) => WRITABLE_TYPES.includes(s.type));
+            if (up) {
+                if (offlineSince != null) {
+                    const downMs = now() - offlineSince;
+                    offlineSince = null;
+                    logger.warn("db.online", "MongoDB reachable again after " + Math.round(downMs / 1000) + "s", { downMs: downMs });
+                }
+                everUp = true;
+            } else if (everUp && offlineSince == null) {
+                offlineSince = now();
+                logger.error("db.offline", "lost contact with MongoDB" + (lastFailure ? ": " + lastFailure : ""));
+            }
+        }
+    };
+}
+
+const topologyWatcher = createTopologyWatcher(log);
+client.on("serverHeartbeatFailed", (ev) => topologyWatcher.heartbeatFailed(ev));
+client.on("topologyDescriptionChanged", (ev) => topologyWatcher.topologyChanged(ev));
+
+async function ensureLogIndexes() {
+    //logs are stored in daily buckets (see logMongo.js). the TTL index expires whole days; the unique
+    //index makes the bucket upsert one lookup and stops a bucket being created twice. a failure here
+    //must never stop the bot booting.
+    const ttlSeconds = (Number(process.env.LOG_MONGO_TTL_DAYS) || 14) * 86400;
+    try {
+        await logs.createIndex({ boot: 1, day: 1, part: 1 }, { unique: true });
+        try {
+            await logs.createIndex({ day: 1 }, { expireAfterSeconds: ttlSeconds });
+        } catch (err) {
+            //same index, different TTL (LOG_MONGO_TTL_DAYS changed): adjust it in place
+            if (err.codeName !== "IndexOptionsConflict" && err.codeName !== "IndexKeySpecsConflict") throw err;
+            await database.command({ collMod: "logs", index: { keyPattern: { day: 1 }, expireAfterSeconds: ttlSeconds } });
+        }
+    } catch (err) {
+        log.error("db.index.failed", "could not create the logs indexes: " + err.message, err);
+    }
+}
 
 async function connect() {
     //connect once at startup so the cluster stays active even while the bot is idle
     await client.connect();
-    console.log("connected to MongoDB");
+    log.info("db.connected", "connected to MongoDB");
+    await ensureLogIndexes();
+}
+
+async function writeLogBucket(filter, update) {
+    //upsert one daily log bucket (the logMongo sink builds the filter/update)
+    await logs.updateOne(filter, update, { upsert: true });
 }
 
 async function close() {
@@ -161,4 +225,4 @@ async function setStats(userId, serverId, fields) {
     await stats.updateOne({ user: userId, server: serverId }, doc, { upsert: true });
 }
 
-module.exports = { connect, close, newServer, getHi, setHi, getAllServers, setOutputChannel, getSettings, setSettings, recordHi, getUserStats, getServerStats, setStats, setChains }
+module.exports = { connect, close, newServer, getHi, setHi, getAllServers, setOutputChannel, getSettings, setSettings, recordHi, getUserStats, getServerStats, setStats, setChains, writeLogBucket, createTopologyWatcher }

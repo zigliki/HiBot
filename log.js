@@ -136,10 +136,22 @@ function createLogger(opts) {
         clearTimeout(timer);
     }
 
+    let dying = false;
+    async function fatal(event, msg, meta) {
+        //log, drain every sink, then exit 1 so the platform restarts us (fly: restart policy 'always').
+        //only the first fatal does anything; a second error while we're flushing is ignored.
+        if (dying) return;
+        dying = true;
+        write('error', event, msg, meta);
+        await flush(opts.fatalFlushMs);
+        (opts.exit || process.exit)(1);
+    }
+
     return {
         boot: boot,
         addSink: addSink,
         flush: flush,
+        fatal: fatal,
         debug: (event, msg, meta) => write('debug', event, msg, meta),
         info: (event, msg, meta) => write('info', event, msg, meta),
         warn: (event, msg, meta) => write('warn', event, msg, meta),
