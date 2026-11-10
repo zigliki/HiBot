@@ -19,7 +19,8 @@ quiet, the bot posts `hi` itself to revive the chain. Runs in multiple servers a
 - `index.js` — entry point: create client, wire events (ready/message/guildCreate/shard lifecycle),
   fatal-error handling, shutdown (flush logs, then close DB), login.
 - `log.js` — the logger (HIB-32/HIB-9/HIB-11): `log.info('hi.valid', msg, meta)`, levels debug<info<warn<error,
-  independent sinks, `log.fatal` (log → flush → exit 1). `logMongo.js` — the MongoDB sink. Use these, not
+  independent sinks, `log.fatal` (log → flush → exit 1). `logMongo.js` / `logDiscord.js` — the MongoDB and
+  Discord-webhook sinks. Use these, not
   `console.*`. See "Logging" below.
 - `hi.js` — the game (`checkHi`; chain revival via `restartPings`/`schedulePing`).
 - `db.js` — data layer; shared MongoClient. Collections: `hi` (per-server state, incl. chain
@@ -37,6 +38,10 @@ One logger, independent sinks, each with its own min level via env (`debug|info|
 `LOG_CONSOLE_LEVEL` (default `info`; what `fly logs` shows), `LOG_MONGO_LEVEL` (default `debug`; the full
 record), `LOG_DISCORD_LEVEL` (default `info`; webhook sink, only active when `LOG_WEBHOOK` is set). Changing
 one on fly = `fly secrets set` (restarts the bot).
+- **Discord feed:** create a webhook in a private channel (Channel settings → Integrations → Webhooks) and
+  `fly secrets set LOG_WEBHOOK=<url> -a zigliki-hi-bot` (treat the URL as a secret). For local `staging` runs add
+  `LOG_WEBHOOK=` to `keys.env` by hand (`pull-keys` only copies LOGIN/MONGO_PWD/DEV). Plain HTTPS, so it works
+  when the gateway is down; batched ~5s, never pings, respects rate limits, queues if Discord is unreachable.
 - **Mongo `logs` collection = daily buckets**, one doc per bot run (`boot`) per UTC day (`day`) per size-roll
   (`part`): counters (`n/warns/errors/firstTs/lastTs`) + a `lines` array of `{ts, level, lvl, event, msg, meta, seq}`.
   TTL index on `day` (`LOG_MONGO_TTL_DAYS`, default 14). Writes are batched (~5s) and queued while Mongo is

@@ -3,6 +3,7 @@ require('dotenv').config({ path: './keys.env' })
 //import modules (log first: it reads the LOG_* env vars, which dotenv has just loaded)
 var log = require("./log");
 var logMongo = require("./logMongo");
+var logDiscord = require("./logDiscord");
 var hi = require("./hi");
 var db = require("./db");
 var config = require("./config")
@@ -27,6 +28,14 @@ const client = new Client({
 //logs also go to MongoDB (HIB-32). the sink queues lines until the DB is connected (setReady, below)
 const mongoLog = logMongo.createMongoSink({ writeBucket: db.writeLogBucket, machine: process.env.FLY_MACHINE_ID });
 log.addSink(mongoLog);
+//...and, when LOG_WEBHOOK is set, to a Discord channel (HIB-9). a webhook is plain HTTPS, so it still works
+//when the bot's gateway connection is down. unset = no Discord logging.
+let discordLog = null;
+if (process.env.LOG_WEBHOOK) {
+  discordLog = logDiscord.createDiscordSink({ url: process.env.LOG_WEBHOOK });
+  log.addSink(discordLog);
+  discordLog.start();
+}
 log.info('bot.start', 'starting HiBot', { boot: log.boot, node: process.version, machine: process.env.FLY_MACHINE_ID });
 
 // Register an event so that when the bot is ready, it will log a messsage to the terminal
@@ -74,6 +83,7 @@ async function shutdown(signal) {
   log.info('bot.shutdown', 'received ' + signal + ', shutting down');
   await log.flush();        //before db.close(): the logs are written through the DB connection
   mongoLog.stop();
+  if (discordLog) discordLog.stop();
   await db.close();
   await client.destroy();
   process.exit(0);
