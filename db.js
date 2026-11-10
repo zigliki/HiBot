@@ -16,12 +16,19 @@ const logs = database.collection("logs");
 //server types that can take writes. if none of the servers are one of these, we've lost the database.
 const WRITABLE_TYPES = ["RSPrimary", "Standalone", "Mongos", "LoadBalancer"];
 
-function createTopologyWatcher(logger, now) {
+//true after connect() until the driver says we lost contact
+let connected = false;
+function isConnected() {
+    return connected;
+}
+
+function createTopologyWatcher(logger, now, setConnected) {
     //turn the driver's topology events into two log lines: db.offline when the database becomes
     //unreachable and db.online when it's back. transitions only - heartbeats fire every ~10s, so
     //logging each one would drown everything. nothing is logged until we've been connected once
     //(a failure to connect at startup is handled by connect()'s caller).
     now = now || Date.now;
+    setConnected = setConnected || function () {};
     let everUp = false;
     let offlineSince = null;
     let lastFailure = null;
@@ -38,15 +45,17 @@ function createTopologyWatcher(logger, now) {
                     logger.warn("db.online", "MongoDB reachable again after " + Math.round(downMs / 1000) + "s", { downMs: downMs });
                 }
                 everUp = true;
+                setConnected(true);
             } else if (everUp && offlineSince == null) {
                 offlineSince = now();
+                setConnected(false);
                 logger.error("db.offline", "lost contact with MongoDB" + (lastFailure ? ": " + lastFailure : ""));
             }
         }
     };
 }
 
-const topologyWatcher = createTopologyWatcher(log);
+const topologyWatcher = createTopologyWatcher(log, Date.now, (value) => { connected = value; });
 client.on("serverHeartbeatFailed", (ev) => topologyWatcher.heartbeatFailed(ev));
 client.on("topologyDescriptionChanged", (ev) => topologyWatcher.topologyChanged(ev));
 
@@ -72,6 +81,7 @@ async function ensureLogIndexes() {
 async function connect() {
     //connect once at startup so the cluster stays active even while the bot is idle
     await client.connect();
+    connected = true;
     log.info("db.connected", "connected to MongoDB");
     await ensureLogIndexes();
 }
@@ -230,4 +240,4 @@ async function setStats(userId, serverId, fields) {
     await stats.updateOne({ user: userId, server: serverId }, doc, { upsert: true });
 }
 
-module.exports = { connect, close, newServer, getHi, setHi, getAllServers, setOutputChannel, getSettings, setSettings, recordHi, getUserStats, getServerStats, setStats, setChains, writeLogBucket, aggregateLogs, createTopologyWatcher }
+module.exports = { connect, close, newServer, getHi, setHi, getAllServers, setOutputChannel, getSettings, setSettings, recordHi, getUserStats, getServerStats, setStats, setChains, writeLogBucket, aggregateLogs, createTopologyWatcher, isConnected }

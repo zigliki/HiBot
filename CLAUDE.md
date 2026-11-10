@@ -53,7 +53,17 @@ one on fly = `fly secrets set` (restarts the bot).
   (flush sinks, `exit(1)`); fly's `restart policy = always` brings the bot back. `unhandledRejection` is
   logged only (HIB-30/HIB-21). Gateway (`shard.*`) and Mongo (`db.offline`/`db.online`) connectivity changes
   are logged as events.
-- Event names are dotted (`hi.valid`, `hi.rejected.toosoon|sameuser|nothi`, `ping.*`, `shard.*`, `db.*`, `tool.*`).
+- **Health / dead-man's switch (HIB-34, `health.js`).** The bot pings a Healthchecks.io check
+  (`HEALTHCHECK_URL`, a secret; unset = off) every `HEALTHCHECK_INTERVAL_MS` (default 5 min) **only while
+  healthy** = gateway READY and Mongo connected, so a bot that's "started" but disconnected goes quiet. When
+  pings stop the service alerts us (check set to period 1h / grace 1h → worst-case ~2h; `log.fatal` also sends
+  `<url>/fail` so a crash alerts at once). Fly's own health checks can't do this (a failing check never restarts a
+  machine and this worker has no HTTP service); a second fly app would cost money and share fly's failure modes.
+  **Watchdog:** gateway not READY for `WATCHDOG_MS` (default 5 min, `0` = off) → `log.fatal('watchdog')` → exit 1
+  → fly restarts. Gateway only: restarting can't fix a Mongo outage. Events: `health.*`, `watchdog.*`.
+  Set the URL with `fly secrets set HEALTHCHECK_URL=<url> -a zigliki-hi-bot` (restarts the bot) and add it to
+  `keys.env` by hand for staging (`pull-keys` doesn't copy it).
+- Event names are dotted (`hi.valid`, `hi.rejected.toosoon|sameuser|nothi`, `ping.*`, `shard.*`, `db.*`, `health.*`, `watchdog.*`, `tool.*`).
 
 ### Commands (`@HiBot <command>`)
 - Public (append `@user` to `stats`/`first` to look up someone else; accepts `<@id>` and `<@!id>`):
