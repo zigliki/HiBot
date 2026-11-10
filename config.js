@@ -1,4 +1,5 @@
 var db = require("./db");
+var log = require("./log");
 var admin = require("./commands/admin");
 
 async function applyStoredSettings(client){
@@ -7,7 +8,7 @@ async function applyStoredSettings(client){
     var settings = await db.getSettings();
     if(settings && settings.activity){
         client.user.setActivity(settings.activity, { type: admin.activityEnum(settings.activity_type) });
-        console.log("restored activity: " + settings.activity_type + " " + settings.activity);
+        log.info("settings.restored", "restored activity: " + settings.activity_type + " " + settings.activity);
     } else {
         client.user.setActivity('#hi', { type: admin.activityEnum('WATCHING') });
     }

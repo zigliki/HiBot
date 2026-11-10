@@ -1,4 +1,5 @@
 var db = require("../db");
+var log = require("../log");
 const { ActivityType } = require("discord.js");
 
 //activity types are stored/typed as upper-case names; v14 wants the ActivityType enum
@@ -45,7 +46,7 @@ async function setBotProfilePicture(client, url, reply){
         await db.setSettings({ default_pic: url });
         if(reply) reply("profile picture updated :+1:");
     } catch(err) {
-        console.log("failed to set avatar: " + err.message);
+        log.warn("admin.avatar.failed", "failed to set avatar: " + err.message, { err: err });
         if(reply) reply("couldn't set the picture (Discord rate-limits avatar changes, try again later)");
     }
 }

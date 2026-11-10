@@ -1,4 +1,5 @@
 var db = require("../db");
+var log = require("../log");
 
 // Replaced accounts: old id -> current id. Fold history onto the account the person
 // uses now, so the earliest hi and combined totals land on that account.
@@ -76,9 +77,9 @@ async function runBackfill(channel, options) {
     docs.sort((a, b) => b.successful - a.successful);
 
     //always log what we found (visible in fly logs) so a dry run is useful
-    console.log("backfill: " + collected.rawCount + " messages, " + docs.length + " users" + (apply ? " (writing)" : " (dry run)"));
+    log.info("backfill.report", "backfill: " + collected.rawCount + " messages, " + docs.length + " users" + (apply ? " (writing)" : " (dry run)"));
     for (const d of docs) {
-        console.log("  " + d.tag + " (" + d.user + "): " + d.successful + " his, " +
+        log.info("backfill.report", "  " + d.tag + " (" + d.user + "): " + d.successful + " his, " +
             "first " + new Date(d.firstHi).toISOString().slice(0, 10) + ", " +
             "last " + new Date(d.lastHi).toISOString().slice(0, 10) + ", " +
             "avg " + (d.successful > 1 ? (d.avgHi / 86400000).toFixed(1) + "d" : "n/a"));

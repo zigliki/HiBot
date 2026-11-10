@@ -1,4 +1,5 @@
 var db = require("../db");
+var log = require("../log");
 var hi = require("../hi");
 var backfill = require("./backfill");
 
@@ -28,7 +29,7 @@ async function runChainBackfill(channel, botId, options) {
     const preHis = firstBotIdx === -1 ? [] : collected.his.slice(0, firstBotIdx);
     const era = firstBotIdx === -1 ? collected.his.slice() : collected.his.slice(firstBotIdx);
     if (firstBotIdx === -1) {
-        console.log("chain backfill: WARNING - no bot hi found; treating all his as HiBot era");
+        log.warn("chainbackfill.warning", "chain backfill: WARNING - no bot hi found; treating all his as HiBot era");
     }
 
     //HiBot era: default PING_DELAY (7d) gap + bot revivals as boundaries
@@ -50,12 +51,12 @@ async function runChainBackfill(channel, botId, options) {
     const golden = preData.longestChain;
 
     //always log (visible in fly logs) so a dry run is useful
-    console.log("chain backfill: " + collected.rawCount + " messages, " + collected.his.length +
+    log.info("chainbackfill.report", "chain backfill: " + collected.rawCount + " messages, " + collected.his.length +
         " valid his (" + era.length + " HiBot-era, " + preHis.length + " pre-HiBot)" +
         (apply ? " (writing)" : " (dry run)"));
     logChain("HiBot-era longest", longest);
     logChain("pre-HiBot golden longest", golden);
-    console.log("  current (in-progress) chain: " + current.count + " hi's");
+    log.info("chainbackfill.report", "  current (in-progress) chain: " + current.count + " hi's");
 
     if (apply) {
         await db.setChains(channel.guild.id, current, longest, golden);
@@ -70,12 +71,12 @@ async function runChainBackfill(channel, botId, options) {
 }
 
 function logChain(label, chain) {
-    console.log("  " + label + ": " + chain.count + " hi's" +
+    log.info("chainbackfill.report", "  " + label + ": " + chain.count + " hi's" +
         (chain.count ? " (" + isoDay(chain.startedAt) + " -> " + isoDay(chain.endedAt) + ")" : ""));
     Object.keys(chain.participants || {})
         .map(function(u){ return { u: u, n: chain.participants[u] }; })
         .sort(function(a, b){ return b.n - a.n; })
-        .forEach(function(p){ console.log("    " + p.u + ": " + p.n); });
+        .forEach(function(p){ log.info("chainbackfill.report", "    " + p.u + ": " + p.n); });
 }
 
 function isoDay(ts) {
