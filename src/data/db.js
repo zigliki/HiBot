@@ -4,9 +4,11 @@
 //auto-pausing the cluster for inactivity (HIB-19).
 const { MongoClient } = require('mongodb');
 const log = require('../logging');
-const uri = "mongodb+srv://zigliki-admin:" + process.env.MONGO_PWD + "@hibot.nectjrd.mongodb.net/?retryWrites=true&w=majority";
+//the whole connection string (host, user, password) comes from the environment (HIB-41)
+const uri = process.env.MONGO_URI;
 
-const client = new MongoClient(uri);
+//a missing uri is reported by connect(), so requiring this module (tests, tools) never throws
+const client = new MongoClient(uri || "mongodb://127.0.0.1");
 const database = client.db("HiBot");
 const hi = database.collection("hi");
 const settings = database.collection("settings");
@@ -76,6 +78,8 @@ async function ensureLogIndexes() {
 }
 
 async function connect() {
+    if(!uri) throw new Error("MONGO_URI is not set (add it to keys.env or the fly secrets)");
+
     //connect once at startup so the cluster stays active even while the bot is idle
     await client.connect();
     connected = true;
