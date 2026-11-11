@@ -1,6 +1,4 @@
-require('dotenv').config({ path: './keys.env' })
-
-//import modules (log first: it reads the LOG_* env vars, which dotenv has just loaded)
+//import modules (log first: it reads the LOG_* env vars, so they have to be in the environment already)
 var log = require("./logging");
 var logSetup = require("./logging/setup");
 var health = require("./health");
