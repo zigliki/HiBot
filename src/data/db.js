@@ -158,6 +158,9 @@ async function getAllServers() {
 }
 
 async function setOutputChannel(serverId, channelId){
+    //a server that hasn't had a hi yet has no document, and the update below would silently match nothing
+    await newServer(serverId, channelId);
+
     //set updates then push
     const doc = {
         $set: {
@@ -165,7 +168,8 @@ async function setOutputChannel(serverId, channelId){
         },
     }
     const query = { server: serverId };
-    await hi.updateOne(query, doc);
+    const result = await hi.updateOne(query, doc);
+    if(result.matchedCount === 0) throw new Error("no server document to save the output channel on: " + serverId);
 }
 
 async function setChains(serverId, currentChain, longestChain, preChain) {
