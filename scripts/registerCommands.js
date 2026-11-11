@@ -5,9 +5,10 @@
 //   npm run register-commands -- --apply           register globally (can take up to an hour to show up)
 //   npm run register-commands -- --guild <id> --apply    register in one server only (shows up immediately)
 //
-// This REPLACES every command at that scope, so a command not in the list is removed. Needs LOGIN in keys.env.
+// This REPLACES every command at that scope, so a command not in the list is removed.
+// `npm run register-commands` registers for the prod bot (LOGIN from keys.env); `npm run register-commands:staging`
+// does the same for the staging bot (keys.staging.env). Both bots can be in the same server, each with its own commands.
 // Prod runs the old code until it's deployed, so a command registered early shows up and fails to answer.
-const path = require('path');
 const { REST, Routes } = require('discord.js');
 
 function parseArgs(argv) {
@@ -48,7 +49,6 @@ async function register(opts, commands, deps) {
 }
 
 async function main() {
-    require('dotenv').config({ path: path.join(__dirname, '..', 'keys.env') });
     const opts = parseArgs(process.argv.slice(2));
     const { commands } = require('../src/commands/slash');
     const rest = opts.apply ? new REST().setToken(process.env.LOGIN) : null;

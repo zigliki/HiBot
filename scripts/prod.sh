@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # prod.sh {stop|start} — pause or resume the prod fly machine(s) (HIB-26).
-# Used directly (npm run prod:pause / prod:resume) and by staging.sh.
+# Used directly: npm run prod:pause / prod:resume.
 # stop/start are idempotent: stopping an already-stopped machine is a no-op.
 set -euo pipefail
 
