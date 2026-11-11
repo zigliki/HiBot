@@ -9,7 +9,8 @@
     "prod:pause": "bash scripts/prod.sh stop",
     "prod:resume": "bash scripts/prod.sh start",
     "pull-keys": "bash scripts/pull-keys.sh",
-    "logs": "node scripts/logs.js",
+    "logs": "node --env-file=keys.env scripts/logs.js",
+    "logs:staging": "node --env-file=keys.staging.env scripts/logs.js",
     "test": "node --test"
   },
   "keywords": [],
@@ -17,7 +18,6 @@
   "license": "ISC",
   "dependencies": {
     "discord.js": "^14.28.1",
-    "dotenv": "^16.0.3",
     "mongodb": "^5.1.0"
   }
 }

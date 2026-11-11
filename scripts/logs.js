@@ -15,8 +15,8 @@
 //   --summary            list bot runs instead of lines
 //   --json               raw JSON, one object per line
 //
-// Needs keys.env (npm run pull-keys). Never writes.
-const path = require('path');
+// Needs the bot's env: `npm run logs` loads keys.env (npm run pull-keys), `npm run logs:staging` loads
+// keys.staging.env. Never writes.
 
 const LEVELS = { debug: 10, info: 20, warn: 30, error: 40 };
 const UNITS = { s: 1000, m: 60000, h: 3600000, d: 86400000 };
@@ -119,7 +119,6 @@ function fmtDuration(ms) {
 }
 
 async function main() {
-    require('dotenv').config({ path: path.join(__dirname, '..', 'keys.env') });
     const db = require('../src/data/db');
     const log = require('../src/logging');
     const opts = parseArgs(process.argv.slice(2));
