@@ -39,7 +39,6 @@ async function setBotProfilePicture(client, url, reply){
     //discord rate-limits avatar changes hard (only a couple per hour)
     try {
         await client.user.setAvatar(url);
-        await db.setSettings({ default_pic: url });
         if(reply) reply("profile picture updated :+1:");
     } catch(err) {
         log.warn("admin.avatar.failed", "failed to set avatar: " + err.message, { err: err });
