@@ -103,3 +103,15 @@ test("getChain: `chain` shows the HiBot-era record; `chain prebot` shows the gol
     assert.match(out[0].content, /golden age\): 159 hi's/);
     assert.doesNotMatch(out[0].content, /current chain/); // no current line for the golden view
 });
+
+test("getChain: `chain prebot` in a server with no golden age says it's only a Shaun The Sheep thing", async () => {
+    db.getHi = async () => ({
+        longestChain: { count: 6, participants: { A: 6 }, startedAt: 0, endedAt: DAY },
+        preChain: { count: 0, participants: {}, startedAt: null, endedAt: null },
+        currentChain: { count: 3 }
+    });
+    const out = [];
+    await stats.getChain(mkCtx("A", out), "prebot");
+    assert.match(out[0].content, /only a Shaun The Sheep thing/);
+    assert.doesNotMatch(out[0].content, /hi's/);
+});

@@ -56,7 +56,7 @@ async function getChain(ctx, which){
     var chain = pre ? data.preChain : data.longestChain;
     if(!chain || !chain.count){
         ctx.reply(pre
-            ? "no pre-HiBot golden-age chain recorded for this server yet :slight_smile:"
+            ? "the pre-HiBot golden age is only a Shaun The Sheep thing, there's no record of it for this server :slight_smile:"
             : "no hi chain recorded for this server yet :slight_smile:");
         return;
     }
