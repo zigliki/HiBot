@@ -7,6 +7,7 @@ const slash = require("../src/commands/slash");
 const commandContext = require("../src/discord/commandContext");
 
 const json = Object.fromEntries(slash.commands.map((c) => [c.data.name, c.data.toJSON()]));
+const goldenJson = Object.fromEntries(slash.goldenAgeCommands.map((c) => [c.data.name, c.data.toJSON()]));
 
 test("the slash set is stats, first, top, chain and output - pic and status are deliberately not slash commands", () => {
     assert.deepEqual(slash.commands.map((c) => c.data.name), ["stats", "first", "top", "chain", "output"]);
@@ -35,8 +36,41 @@ test("options: user pickers, choice lists and a required text channel", () => {
     assert.deepEqual(json.stats.options.map((o) => [o.name, o.type, !!o.required]), [["user", 6, false]]);
     assert.deepEqual(json.first.options.map((o) => [o.name, o.type, !!o.required]), [["user", 6, false]]);
     assert.deepEqual(json.top.options[0].choices.map((c) => c.value), ["his", "average"]);
-    assert.deepEqual(json.chain.options[0].choices.map((c) => c.value), ["hibot", "prebot"]);
+    assert.deepEqual(json.chain.options, []);
     assert.deepEqual(json.output.options.map((o) => [o.name, o.type, o.required, o.channel_types]), [["channel", 7, true, [0]]]);
+});
+
+test("the golden-age set is the same commands, but /chain also offers the era choice", () => {
+    assert.deepEqual(slash.goldenAgeCommands.map((c) => c.data.name), slash.commands.map((c) => c.data.name));
+    assert.deepEqual(goldenJson.chain.options.map((o) => [o.name, o.type, !!o.required]), [["era", 3, false]]);
+    assert.deepEqual(goldenJson.chain.options[0].choices.map((c) => c.value), ["hibot", "prebot"]);
+    for (const name of ["stats", "first", "top", "output"]) {
+        assert.deepEqual(goldenJson[name], json[name], name);
+    }
+});
+
+test("commandsFor: Shaun The Sheep gets the golden-age set, every other server the main one", () => {
+    const saved = process.env.GOLDEN_AGE_GUILD;
+    delete process.env.GOLDEN_AGE_GUILD;
+    try {
+        assert.equal(slash.goldenAgeGuild(), "128039782679969792");
+        assert.equal(slash.commandsFor("128039782679969792"), slash.goldenAgeCommands);
+        assert.equal(slash.commandsFor("376510932769046528"), slash.commands);
+        assert.equal(slash.commandsFor("anything else"), slash.commands);
+    } finally {
+        if (saved !== undefined) process.env.GOLDEN_AGE_GUILD = saved;
+    }
+});
+
+test("commandsFor: GOLDEN_AGE_GUILD changes which server gets the golden-age set (how staging tests it)", () => {
+    const saved = process.env.GOLDEN_AGE_GUILD;
+    process.env.GOLDEN_AGE_GUILD = "TEST";
+    try {
+        assert.equal(slash.commandsFor("TEST"), slash.goldenAgeCommands);
+        assert.equal(slash.commandsFor("128039782679969792"), slash.commands);
+    } finally {
+        if (saved === undefined) delete process.env.GOLDEN_AGE_GUILD; else process.env.GOLDEN_AGE_GUILD = saved;
+    }
 });
 
 // an interaction stub with just the option getters a command uses

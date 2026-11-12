@@ -18,6 +18,30 @@ function targetId(interaction){
     return user ? user.id : undefined;
 }
 
+//only Shaun The Sheep has a pre-HiBot "golden age" record, so only its /chain offers it. GOLDEN_AGE_GUILD changes which
+//server that is (staging points it at the Test Server)
+const DEFAULT_GOLDEN_AGE_GUILD = "128039782679969792";
+
+function goldenAgeGuild(){
+    return process.env.GOLDEN_AGE_GUILD || DEFAULT_GOLDEN_AGE_GUILD;
+}
+
+function chainCommand(withGoldenAge){
+    var builder = new SlashCommandBuilder()
+        .setName("chain")
+        .setDescription("Show the longest hi chain")
+        .setContexts(GUILD_ONLY);
+    if(withGoldenAge){
+        builder.addStringOption(option => option.setName("era").setDescription("Which era (default: HiBot)")
+            .addChoices({ name: "HiBot", value: "hibot" }, { name: "pre-HiBot golden age", value: "prebot" }));
+    }
+    return {
+        data: builder,
+        execute: (ctx, interaction) => stats.getChain(ctx, interaction.options.getString("era") == "prebot" ? "prebot" : undefined)
+    };
+}
+
+//the main set, which every server gets except the golden-age one
 const commands = [
     {
         data: new SlashCommandBuilder()
@@ -44,15 +68,7 @@ const commands = [
                 .addChoices({ name: "most hi's", value: "his" }, { name: "lowest average gap", value: "average" })),
         execute: (ctx, interaction) => stats.getTop(ctx, interaction.options.getString("board") || undefined)
     },
-    {
-        data: new SlashCommandBuilder()
-            .setName("chain")
-            .setDescription("Show the longest hi chain")
-            .setContexts(GUILD_ONLY)
-            .addStringOption(option => option.setName("era").setDescription("Which era (default: HiBot)")
-                .addChoices({ name: "HiBot", value: "hibot" }, { name: "pre-HiBot golden age", value: "prebot" })),
-        execute: (ctx, interaction) => stats.getChain(ctx, interaction.options.getString("era") == "prebot" ? "prebot" : undefined)
-    },
+    chainCommand(false),
     {
         data: new SlashCommandBuilder()
             .setName("output")
@@ -70,8 +86,16 @@ const commands = [
     }
 ];
 
-//name -> command, for the interactionCreate handler
+//the golden-age server's set: the same commands, with the era choice on /chain
+const goldenAgeCommands = commands.map(command => command.data.name == "chain" ? chainCommand(true) : command);
+
+//which commands get registered in a server
+function commandsFor(guildId){
+    return guildId == goldenAgeGuild() ? goldenAgeCommands : commands;
+}
+
+//name -> command, for the interactionCreate handler (both /chain versions run the same code)
 const byName = {};
 commands.forEach(command => { byName[command.data.name] = command; });
 
-module.exports = { commands, byName };
+module.exports = { commands, goldenAgeCommands, commandsFor, goldenAgeGuild, byName };

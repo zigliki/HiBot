@@ -1,6 +1,6 @@
 const { test } = require("node:test");
 const assert = require("node:assert");
-const { Collection, PermissionFlagsBits } = require("discord.js");
+const { Collection, PermissionFlagsBits, Routes } = require("discord.js");
 const { createLogger } = require("../src/logging");
 const db = require("../src/data/db");
 const guildInfo = require("../src/discord/guildInfo");
@@ -9,12 +9,18 @@ const guildDelete = require("../src/events/guildDelete");
 const log = require("../src/logging");
 
 // a guild stub: channels is a real discord.js Collection; `perms` is the list of permissions the bot has in #hi
-function makeGuild({ id = "g1", name = "Test Server", channels = [], perms = "all", fetchMe } = {}) {
+function makeGuild({ id = "g1", name = "Test Server", channels = [], perms = "all", fetchMe, put } = {}) {
     const cache = new Collection(channels.map((c) => [c.id, c]));
     const all = [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ManageMessages, PermissionFlagsBits.ReadMessageHistory];
     const have = perms === "all" ? all : perms;
     cache.forEach((c) => { c.permissionsFor = () => ({ has: (p) => have.includes(p) }); });
-    return { id, name, memberCount: 42, channels: { cache }, members: { fetchMe: fetchMe || (async () => ({ id: "bot" })) } };
+    // client.rest.put is what registers the slash commands on join; `puts` records what was sent
+    const puts = [];
+    const client = {
+        application: { id: "APP" },
+        rest: { put: async (route, opts) => { puts.push([route, opts.body.map((c) => c.name)]); return put ? put(route, opts) : opts.body; } }
+    };
+    return { id, name, memberCount: 42, channels: { cache }, members: { fetchMe: fetchMe || (async () => ({ id: "bot" })) }, client, puts };
 }
 
 const HI = { id: "c1", name: "hi" };
@@ -122,7 +128,7 @@ test("guildCreate: saves the bot-control channel's ID (not the channel object), 
     }
     assert.deepEqual(args, ["g1", "c2"]);
     assert.equal(typeof args[1], "string");
-    assert.deepEqual(logged.map((e) => e.event), ["guild.joined", "guild.info"]);
+    assert.deepEqual(logged.map((e) => e.event), ["guild.joined", "guild.info", "commands.registered"]);
 });
 
 test("guildCreate: no bot-control channel is stored as undefined; a db failure is logged, not thrown", async () => {
@@ -135,8 +141,39 @@ test("guildCreate: no bot-control channel is stored as undefined; a db failure i
         Object.assign(db, saved);
     }
     assert.deepEqual(args, ["g1", undefined]);
-    assert.deepEqual(logged.map((e) => [e.level, e.event]), [["info", "guild.joined"], ["error", "guild.join.failed"]]);
+    assert.deepEqual(logged.map((e) => [e.level, e.event]), [["info", "guild.joined"], ["error", "guild.join.failed"], ["info", "commands.registered"]]);
     assert.match(logged[1].msg, /insert failed/);
+});
+
+test("guildCreate: joining registers that server's slash commands (the main set for a normal server)", async () => {
+    const saved = { newServer: db.newServer, getHi: db.getHi };
+    db.newServer = async () => {};
+    db.getHi = async () => ({ botControl: "c2" });
+    const guild = makeGuild({ id: "NEW", channels: [{ ...HI }, { ...CONTROL }] });
+    try {
+        await quietly(() => guildCreate.handle(guild));
+    } finally {
+        Object.assign(db, saved);
+    }
+    assert.deepEqual(guild.puts, [[Routes.applicationGuildCommands("APP", "NEW"), ["stats", "first", "top", "chain", "output"]]]);
+    assert.deepEqual(logged.filter((e) => e.event === "commands.registered").map((e) => e.msg), ["registered 5 slash commands"]);
+});
+
+test("guildCreate: a failed command registration is a warning and the rest of the join setup still happens", async () => {
+    const saved = { newServer: db.newServer, getHi: db.getHi };
+    let stored = false;
+    db.newServer = async () => { stored = true; };
+    db.getHi = async () => ({ botControl: "c2" });
+    const guild = makeGuild({ channels: [{ ...HI }, { ...CONTROL }], put: async () => { throw new Error("Missing Access"); } });
+    try {
+        await quietly(() => guildCreate.handle(guild));
+    } finally {
+        Object.assign(db, saved);
+    }
+    assert.equal(stored, true);
+    assert.deepEqual(logged.map((e) => [e.level, e.event]), [["info", "guild.joined"], ["info", "guild.info"], ["warn", "commands.register.failed"]]);
+    assert.match(logged[2].msg, /Missing Access/);
+    assert.equal(logged[2].meta.guild, "g1");
 });
 
 test("guildDelete: logs that the bot left, tagged with the server", async () => {
