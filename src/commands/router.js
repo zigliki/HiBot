@@ -7,6 +7,9 @@ var commandContext = require("../discord/commandContext");
 var logContext = require("../logging/context");
 
 function botCommands(message, client){
+    //the bot's own messages (e.g. "@HiBot will output to this channel now") aren't commands
+    if(message.author.id == client.user.id) return;
+
     var who = logContext.forMessage(message);
 
     //bot admin can DM the bot to change global properties (HIB-6)

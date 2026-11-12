@@ -83,6 +83,17 @@ test("anything that isn't a command for the bot is ignored", async () => {
     assert.deepEqual(await run("status WATCHING #hi", { type: ChannelType.DM }), []);
 });
 
+test("the bot's own messages are ignored and not logged, even when they start with its mention", async () => {
+    const sent = [];
+    const msg = mkMessage("<@BOT> will output to this channel now", sent);
+    msg.author = { id: "BOT", tag: "HiBot" };
+    logged.length = 0;
+    router.botCommands(msg, client);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(sent, []);
+    assert.deepEqual(logged, []);
+});
+
 const events = () => logged.map((e) => [e.level, e.event]);
 
 test("a command that ran is logged with who, where and what they typed", async () => {
