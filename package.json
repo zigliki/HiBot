@@ -11,6 +11,8 @@
     "pull-keys": "bash scripts/pull-keys.sh",
     "logs": "node --env-file=keys.env scripts/logs.js",
     "logs:staging": "node --env-file=keys.staging.env scripts/logs.js",
+    "register-commands": "node --env-file=keys.env scripts/registerCommands.js",
+    "register-commands:staging": "node --env-file=keys.staging.env scripts/registerCommands.js",
     "test": "node --test"
   },
   "keywords": [],

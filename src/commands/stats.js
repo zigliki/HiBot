@@ -7,28 +7,15 @@ function formatDuration(ms){
     return days + "d " + hours + "h";
 }
 
-function reply(message, content){
-    //stats output names lots of users; only ever ping the requester, so running
-    //`top`/`chain` etc. doesn't notify everyone on the board (HIB-28). Other <@id>
-    //mentions still render as names, just without a ping.
-    return message.channel.send({ content: content, allowedMentions: { users: [message.member.user.id] } });
-}
-
-function parseUserId(arg){
-    //pull a user id out of a mention arg; accept both <@id> and <@!id> (nickname)
-    var m = arg && arg.match(/^<@!?(\d+)>$/);
-    return m ? m[1] : null;
-}
-
-async function getUserStats(message, client, targetArg){
-    //defaults to the requester; a mention arg (@HiBot stats @user) looks up someone else (HIB-28)
-    var targetId = parseUserId(targetArg) || message.member.user.id;
-    var self = targetId === message.member.user.id;
+async function getUserStats(ctx, targetId){
+    //defaults to the requester; a target (@HiBot stats @user) looks up someone else (HIB-28)
+    targetId = targetId || ctx.userId;
+    var self = targetId === ctx.userId;
     //rank + share are measured against the leaderboard with HiBot excluded (HIB-28)
-    var board = await db.getServerStats(message.guild.id, client.user.id);
+    var board = await db.getServerStats(ctx.guildId, ctx.botId);
     var stat = board.find(function(s){ return s.user == targetId; });
     if(stat == null){
-        reply(message,"<@" + targetId + "> " + (self ? "you haven't" : "hasn't") + " said a successful hi here yet :slight_smile:");
+        ctx.reply("<@" + targetId + "> " + (self ? "you haven't" : "hasn't") + " said a successful hi here yet :slight_smile:");
         return;
     }
     //avgHi is undefined until there are at least two his to measure a gap between
@@ -38,7 +25,7 @@ async function getUserStats(message, client, targetArg){
     var total = board.reduce(function(sum, s){ return sum + s.successful; }, 0);
     var share = (stat.successful / total * 100).toFixed(1);
     var lead = self ? ("<@" + targetId + "> your") : ("<@" + targetId + ">'s");
-    reply(message,
+    ctx.reply(
         lead + " hi stats for this server:\n" +
         "successful hi's: " + stat.successful + "\n" +
         "average time between hi's: " + avg + "\n" +
@@ -48,28 +35,28 @@ async function getUserStats(message, client, targetArg){
     );
 }
 
-async function getFirstHi(message, targetArg){
-    //defaults to the requester; a mention arg (@HiBot first @user) looks up someone else (HIB-28)
+async function getFirstHi(ctx, targetId){
+    //defaults to the requester; a target (@HiBot first @user) looks up someone else (HIB-28)
     //firstHi has always been stored (HIB-2) but was never surfaced until now
-    var targetId = parseUserId(targetArg) || message.member.user.id;
-    var self = targetId === message.member.user.id;
-    var stat = await db.getUserStats(targetId, message.guild.id);
+    targetId = targetId || ctx.userId;
+    var self = targetId === ctx.userId;
+    var stat = await db.getUserStats(targetId, ctx.guildId);
     if(stat == null || !stat.firstHi){
-        reply(message,"<@" + targetId + "> " + (self ? "you haven't" : "hasn't") + " said a successful hi here yet :slight_smile:");
+        ctx.reply("<@" + targetId + "> " + (self ? "you haven't" : "hasn't") + " said a successful hi here yet :slight_smile:");
         return;
     }
     var lead = self ? ("<@" + targetId + "> your") : ("<@" + targetId + ">'s");
-    reply(message, lead + " first hi here was " + new Date(stat.firstHi).toUTCString());
+    ctx.reply(lead + " first hi here was " + new Date(stat.firstHi).toUTCString());
 }
 
-async function getChain(message, which){
+async function getChain(ctx, which){
     //`chain` = HiBot-era longest; `chain prebot` = pre-HiBot golden-age longest (HIB-28)
     var pre = ["pre", "prebot", "golden", "goldenage", "gold"].indexOf((which || "").toLowerCase()) !== -1;
-    var data = await db.getHi(message.guild.id);
+    var data = await db.getHi(ctx.guildId);
     var chain = pre ? data.preChain : data.longestChain;
     if(!chain || !chain.count){
-        reply(message, pre
-            ? "no pre-HiBot golden-age chain recorded for this server yet :slight_smile:"
+        ctx.reply(pre
+            ? "the pre-HiBot golden age is only a Shaun The Sheep thing, there's no record of it for this server :slight_smile:"
             : "no hi chain recorded for this server yet :slight_smile:");
         return;
     }
@@ -91,19 +78,18 @@ async function getChain(message, which){
             out += "\ncurrent chain: " + cur.count + " hi's and counting";
         }
     }
-    reply(message,out);
+    ctx.reply(out);
 }
 
-async function getTop(message, client, board){
+async function getTop(ctx, board){
     //leaderboards for a server, HiBot always excluded (revival his shouldn't rank) - HIB-2/HIB-28
     board = (board || "his").toLowerCase();
-    var all = await db.getServerStats(message.guild.id, client.user.id);
-    var userId = message.member.user.id;
+    var all = await db.getServerStats(ctx.guildId, ctx.botId);
 
     switch(board){
         case "his":
             //most successful his (count) - rewards long-term dedication
-            sendBoard(message, all, userId,
+            sendBoard(ctx, all,
                 "top hi-ers in this server:",
                 "no hi stats recorded for this server yet :slight_smile:",
                 function(stat){ return stat.successful + " hi's"; });
@@ -113,20 +99,21 @@ async function getTop(message, client, board){
             //most consistent: lowest average gap, min 10 his to qualify (HIB-28)
             var ranked = all.filter(function(s){ return s.successful >= 10; })
                             .sort(function(a, b){ return a.avgHi - b.avgHi; });
-            sendBoard(message, ranked, userId,
+            sendBoard(ctx, ranked,
                 "most consistent hi-ers (lowest avg gap, min 10 hi's):",
                 "no one has 10+ hi's in this server yet :slight_smile:",
                 function(stat){ return "avg " + formatDuration(stat.avgHi) + " (" + stat.successful + " hi's)"; });
             return;
         default:
-            reply(message,"unknown leaderboard \"" + board + "\" - try: `top`, `top average`");
+            ctx.reply("unknown leaderboard \"" + board + "\" - try: `top`, `top average`");
     }
 }
 
-function sendBoard(message, board, userId, header, emptyMsg, valueFn){
+function sendBoard(ctx, board, header, emptyMsg, valueFn){
     //render a top-5 leaderboard; if the requester isn't in the top 5, append their rank (HIB-28)
+    var userId = ctx.userId;
     if(board.length == 0){
-        reply(message,emptyMsg);
+        ctx.reply(emptyMsg);
         return;
     }
     function line(stat, rank){
@@ -141,7 +128,7 @@ function sendBoard(message, board, userId, header, emptyMsg, valueFn){
         lines.push("...");
         lines.push(line(board[rank], rank + 1));
     }
-    reply(message,header + "\n" + lines.join("\n"));
+    ctx.reply(header + "\n" + lines.join("\n"));
 }
 
 module.exports = { getUserStats, getFirstHi, getTop, getChain };
